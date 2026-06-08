@@ -1,16 +1,17 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Card, Typography, Tag, Descriptions, Form, Input, Button, List, Spin, message, Space, Divider, Select, Steps } from 'antd';
+import { Card, Typography, Tag, Descriptions, Form, Input, Button, List, Spin, message, Space, Divider, Select, Steps, Tooltip } from 'antd';
 import { ArrowLeftOutlined, SendOutlined, UploadOutlined, LinkOutlined, PlayCircleOutlined, CheckCircleOutlined, StopOutlined, BugOutlined, ToolOutlined, SwapOutlined, ExclamationCircleOutlined, BellOutlined, BranchesOutlined } from '@ant-design/icons';
 import api from '../../api/client';
 import { useAuth } from '../../contexts/AuthContext';
-import { TICKET_TYPES, TICKET_STATUS, PRIORITIES } from '../../utils/constants';
+import { TICKET_TYPES, TICKET_STATUS, PRIORITIES, STATUS_TRANSITIONS } from '../../utils/constants';
+import { getOrderedNodes, getStepStatus } from '../../utils/workflowHelpers';
 import { formatDate } from '../../utils/formatDate';
 import SlaTimer from '../../components/SlaTimer';
 
 const { TextArea } = Input;
 
-const statusColors = { new: 'blue', in_progress: 'orange', on_hold: 'gold', resolved: 'green', closed: 'default', cancelled: 'red' };
+const statusColors = { new: 'blue', in_progress: 'orange', on_hold: 'gold', resolved: 'green', closed: 'default', cancelled: 'red', reopened: 'purple' };
 const typeColors = { incident: 'red', work_order: 'purple', change_request: 'gold', problem: 'volcano' };
 
 const NODE_ICONS = {
@@ -49,11 +50,23 @@ export default function TicketDetail() {
   const [commenting, setCommenting] = useState(false);
   const [execution, setExecution] = useState(null);
   const [resolution, setResolution] = useState('');
+  const [draftStatus, setDraftStatus] = useState(null);
+  const [draftGroup, setDraftGroup] = useState(null);
+  const [draftUser, setDraftUser] = useState(null);
+  const [draftPriority, setDraftPriority] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [dirty, setDirty] = useState(false);
 
   const loadTicket = async () => {
     try {
       const res = await api.get(`/tickets/${id}`);
       setTicket(res.data);
+      setDraftStatus(res.data.status);
+      setDraftGroup(res.data.assigned_group_id || null);
+      setDraftUser(res.data.assigned_user_id || null);
+      setDraftPriority(res.data.priority || 'medium');
+      setResolution('');
+      setDirty(false);
       if (res.data.workflow_execution_id) {
         try {
           const exRes = await api.get(`/workflow-executions/by-ticket/${id}`);
@@ -78,25 +91,33 @@ export default function TicketDetail() {
     finally { setCommenting(false) }
   };
 
-  const handleChangeStatus = async (status) => {
+  const handleSave = async () => {
+    if (draftStatus === 'resolved' && !resolution.trim()) {
+      message.error('Debes ingresar una resolución');
+      return;
+    }
+    setSaving(true);
     try {
-      const payload = { status };
-      if ((status === 'resolved' || status === 'closed') && resolution.trim()) {
-        payload.resolution = resolution.trim();
+      const payload = {};
+      if (draftStatus !== ticket.status) payload.status = draftStatus;
+      if (draftStatus === 'resolved' || draftStatus === 'closed') {
+        if (resolution.trim()) payload.resolution = resolution.trim();
       }
-      await api.patch(`/tickets/${id}/status`, payload);
-      setResolution('');
-      message.success('Estado actualizado');
-      loadTicket();
-    } catch (err) { message.error(err.response?.data?.error || 'Error al actualizar estado') }
-  };
+      if (draftGroup !== (ticket.assigned_group_id || null)) payload.assigned_group_id = draftGroup;
+      if (draftUser !== (ticket.assigned_user_id || null)) payload.assigned_user_id = draftUser;
+      if (draftPriority !== ticket.priority) payload.priority = draftPriority;
 
-  const handleAssign = async (field, value) => {
-    try {
-      await api.patch(`/tickets/${id}/assign`, { [field]: value });
-      message.success('Asignación actualizada');
+      if (Object.keys(payload).length === 0) {
+        message.info('No hay cambios que guardar');
+        setSaving(false);
+        return;
+      }
+
+      await api.put(`/tickets/${id}`, payload);
+      message.success('Cambios guardados');
       loadTicket();
-    } catch { message.error('Error al asignar') }
+    } catch (err) { message.error(err.response?.data?.error || 'Error al guardar cambios') }
+    finally { setSaving(false) }
   };
 
   const handleAttach = async (e) => {
@@ -143,16 +164,16 @@ export default function TicketDetail() {
           <div style={{ marginBottom: 16 }}>
             <Space wrap>
               <Select
-                value={ticket.status}
-                onChange={v => handleChangeStatus(v)}
-                options={Object.entries(TICKET_STATUS).map(([k, v]) => ({ label: v, value: k }))}
+                value={draftStatus}
+                onChange={v => { setDraftStatus(v); setDirty(true); }}
+                options={(STATUS_TRANSITIONS[ticket.status] || []).map(s => ({ label: TICKET_STATUS[s] || s, value: s }))}
                 style={{ width: 150 }}
                 size="small"
               />
               <Select
                 placeholder="Asignar grupo"
-                value={ticket.assigned_group_id || undefined}
-                onChange={v => handleAssign('assigned_group_id', v)}
+                value={draftGroup || undefined}
+                onChange={v => { setDraftGroup(v); setDirty(true); }}
                 options={groups.map(g => ({ label: g.name, value: g.id }))}
                 allowClear
                 style={{ width: 180 }}
@@ -160,30 +181,35 @@ export default function TicketDetail() {
               />
               <Select
                 placeholder="Asignar usuario"
-                value={ticket.assigned_user_id || undefined}
-                onChange={v => handleAssign('assigned_user_id', v)}
+                value={draftUser || undefined}
+                onChange={v => { setDraftUser(v); setDirty(true); }}
                 options={resolvers.map(u => ({ label: `${u.full_name} (${u.email})`, value: u.id }))}
                 allowClear
                 style={{ width: 220 }}
                 size="small"
               />
               <Select
-                value={ticket.priority}
-                onChange={v => handleAssign('priority', v)}
+                value={draftPriority}
+                onChange={v => { setDraftPriority(v); setDirty(true); }}
                 options={Object.entries(PRIORITIES).map(([k, v]) => ({ label: v, value: k }))}
                 style={{ width: 120 }}
                 size="small"
               />
+              <Button type="primary" onClick={handleSave} loading={saving} disabled={!dirty}>
+                Guardar
+              </Button>
             </Space>
-            {(ticket.status === 'in_progress' || ticket.status === 'on_hold') && (
+            {draftStatus === 'resolved' && draftStatus !== ticket.status && (
               <TextArea
                 rows={2}
                 value={resolution}
-                onChange={e => setResolution(e.target.value)}
-                placeholder="Resolución (requerida para resolver/cerrar)..."
+                onChange={e => { setResolution(e.target.value); setDirty(true); }}
+                placeholder="Resolución (obligatoria)..."
                 style={{ marginTop: 8 }}
+                status={!resolution.trim() ? 'error' : undefined}
               />
             )}
+            {dirty && <Typography.Text type="warning" style={{ display: 'block', marginTop: 4, fontSize: 12 }}>Tienes cambios sin guardar</Typography.Text>}
           </div>
         )}
 
@@ -200,34 +226,48 @@ export default function TicketDetail() {
               size="small"
               style={{ marginTop: 12 }}
               current={-1}
-              items={(execution.workflow?.nodes || [])
-                .filter(n => n.data?.nodeType !== 'start')
-                .map(node => {
-                  const ticketNode = (execution.tickets || []).find(t => t.source_node_id === node.id);
-                  const isEnd = node.data?.nodeType === 'end';
-                  const isCondition = node.data?.nodeType === 'condition';
-                  const isNotification = node.data?.nodeType === 'notification';
-                  return {
-                    title: (
-                      <Space>
-                        {NODE_ICONS[node.data?.nodeType]}
-                        <span>{NODE_LABELS[node.data?.nodeType] || node.data?.label || node.data?.nodeType}</span>
-                      </Space>
-                    ),
-                    status: isEnd ? 'finish' : ticketNode
-                      ? (['resolved', 'closed'].includes(ticketNode.status) ? 'finish' : 'process')
-                      : (isCondition || isNotification ? 'finish' : 'wait'),
-                    description: ticketNode ? (
-                      <Link to={`/tickets/${ticketNode.id}`} style={{ fontSize: 12 }}>
-                        {ticketNode.code || `#${ticketNode.id}`} - {TICKET_STATUS[ticketNode.status] || ticketNode.status}
-                      </Link>
-                    ) : isEnd ? (
-                      <span style={{ fontSize: 12, color: '#999' }}>Flujo finalizado</span>
-                    ) : isNotification ? (
-                      <span style={{ fontSize: 12, color: '#999' }}>Notificación enviada</span>
-                    ) : undefined,
-                  };
-                })}
+              items={(() => {
+                const orderedNodes = getOrderedNodes(execution.workflow?.nodes || [], execution.workflow?.edges || []);
+                return orderedNodes
+                  .filter(n => n.data?.nodeType !== 'start')
+                  .map(node => {
+                    const status = getStepStatus(node, execution, orderedNodes);
+                    const ticketNode = (execution.tickets || []).find(t => t.source_node_id === node.id);
+                    const isEnd = node.data?.nodeType === 'end';
+                    const isCondition = node.data?.nodeType === 'condition';
+                    const isNotification = node.data?.nodeType === 'notification';
+                    const isWaiting = status === 'wait';
+
+                    return {
+                      title: (
+                        <Space>
+                          {NODE_ICONS[node.data?.nodeType]}
+                          <span style={{ color: isWaiting ? '#bbb' : undefined }}>
+                            {NODE_LABELS[node.data?.nodeType] || node.data?.label || node.data?.nodeType}
+                          </span>
+                        </Space>
+                      ),
+                      status,
+                      description: ticketNode ? (
+                        <Link to={`/tickets/${ticketNode.id}`} style={{ fontSize: 12 }}>
+                          {ticketNode.code || `#${ticketNode.id}`} - {TICKET_STATUS[ticketNode.status] || ticketNode.status}
+                        </Link>
+                      ) : isEnd ? (
+                        status === 'finish'
+                          ? <span style={{ fontSize: 12, color: '#999' }}>Flujo finalizado</span>
+                          : <span style={{ fontSize: 12, color: '#bbb' }}>Pendiente por ejecutar</span>
+                      ) : isNotification ? (
+                        status === 'finish'
+                          ? <span style={{ fontSize: 12, color: '#999' }}>Notificación enviada</span>
+                          : <span style={{ fontSize: 12, color: '#bbb' }}>Pendiente por ejecutar</span>
+                      ) : isCondition ? (
+                        status === 'finish'
+                          ? <span style={{ fontSize: 12, color: '#999' }}>Condición evaluada</span>
+                          : <span style={{ fontSize: 12, color: '#bbb' }}>Pendiente por ejecutar</span>
+                      ) : undefined,
+                    };
+                  });
+              })()}
             />
           </>
         )}

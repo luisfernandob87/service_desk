@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ReactFlow,
   Background,
@@ -11,7 +11,7 @@ import {
   Position,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { Button, Space, Select, Tag, Typography, Drawer, Input } from 'antd';
+import { Button, Space, Select, Tag, Typography, Drawer, Input, Slider } from 'antd';
 import {
   PlayCircleOutlined,
   CheckCircleOutlined,
@@ -22,6 +22,8 @@ import {
   ToolOutlined,
   SwapOutlined,
   ExclamationCircleOutlined,
+  DeleteOutlined,
+  MinusCircleOutlined,
 } from '@ant-design/icons';
 
 const NODE_CONFIG = {
@@ -140,17 +142,21 @@ const NODE_CONFIG = {
   },
 };
 
+const NODE_SIZES = { small: { pad: '4px 10px', minW: 100, fontSize: 11 }, medium: { pad: '8px 16px', minW: 140, fontSize: 13 }, large: { pad: '12px 24px', minW: 180, fontSize: 15 } };
+
 function ProcessNode({ data, selected }) {
   const cfg = NODE_CONFIG[data.nodeType] || NODE_CONFIG.notification;
   const isCondition = data.nodeType === 'condition';
+  const sz = NODE_SIZES[data.size] || NODE_SIZES.medium;
   return (
     <div style={{
       background: cfg.bg,
       border: `2px solid ${selected ? '#1677ff' : cfg.color}`,
       borderRadius: isCondition ? 4 : 8,
-      padding: '8px 16px',
-      minWidth: 140,
+      padding: sz.pad,
+      minWidth: sz.minW,
       textAlign: 'center',
+      fontSize: sz.fontSize,
       boxShadow: selected ? '0 0 0 2px rgba(22,119,255,0.3)' : '0 2px 4px rgba(0,0,0,0.1)',
       transform: isCondition ? 'rotate(45deg)' : 'none',
     }}>
@@ -182,6 +188,7 @@ const defaultEdgeOptions = {
 
 export default function WorkflowEditor({ value, onChange }) {
   const [configNode, setConfigNode] = useState(null);
+  const [selectedEdgeId, setSelectedEdgeId] = useState(null);
   const [groups, setGroups] = useState([]);
   const [users, setUsers] = useState([]);
 
@@ -206,7 +213,34 @@ export default function WorkflowEditor({ value, onChange }) {
     const tgtCfg = NODE_CONFIG[targetNode.data?.nodeType];
     if (srcCfg?.hasSource === false || tgtCfg?.hasTarget === false) return;
     setEdges((eds) => addEdge({ ...params, ...defaultEdgeOptions }, eds));
+    setSelectedEdgeId(null);
   }, [nodes, setEdges]);
+
+  const onEdgeClick = useCallback((event, edge) => {
+    event.stopPropagation();
+    setSelectedEdgeId(edge.id);
+    setConfigNode(null);
+  }, []);
+
+  const deleteSelectedEdge = useCallback(() => {
+    if (!selectedEdgeId) return;
+    setEdges((eds) => eds.filter(e => e.id !== selectedEdgeId));
+    setSelectedEdgeId(null);
+  }, [selectedEdgeId, setEdges]);
+
+  const onPaneClick = useCallback(() => {
+    setSelectedEdgeId(null);
+  }, []);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedEdgeId) {
+        deleteSelectedEdge();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [selectedEdgeId, deleteSelectedEdge]);
 
   const addNode = useCallback((nodeType) => {
     const cfg = NODE_CONFIG[nodeType];
@@ -262,23 +296,30 @@ export default function WorkflowEditor({ value, onChange }) {
             key={key}
             color={cfg.color}
             style={{ cursor: 'pointer', padding: '2px 8px' }}
-            onClick={() => addNode(key)}
+            onClick={() => { addNode(key); setSelectedEdgeId(null); }}
           >
             + {cfg.label}
           </Tag>
         ))}
         <div style={{ flex: 1 }} />
         <Typography.Text type="secondary">{nodes.length} nodos, {edges.length} conexiones</Typography.Text>
+        {selectedEdgeId && (
+          <Button icon={<DeleteOutlined />} size="small" danger onClick={deleteSelectedEdge}>
+            Eliminar conexión
+          </Button>
+        )}
         <Button type="primary" onClick={handleSave}>Guardar</Button>
       </div>
       <div style={{ flex: 1, minHeight: 400 }}>
         <ReactFlow
           nodes={nodes}
-          edges={edges}
+          edges={edges.map(e => ({ ...e, selected: e.id === selectedEdgeId, style: e.id === selectedEdgeId ? { stroke: '#1677ff', strokeWidth: 3 } : { stroke: '#1677ff', strokeWidth: 2 } }))}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
           onNodeClick={onNodeClick}
+          onEdgeClick={onEdgeClick}
+          onPaneClick={onPaneClick}
           nodeTypes={nodeTypes}
           defaultEdgeOptions={defaultEdgeOptions}
           fitView
@@ -296,9 +337,22 @@ export default function WorkflowEditor({ value, onChange }) {
         width={360}
         key={selectedNode?.id || 'none'}
       >
-        {selectedNode && cfg?.configFields && (
+        {selectedNode && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {cfg.configFields.map((field) => {
+            <div>
+              <div style={{ marginBottom: 4, fontWeight: 500 }}>Tamaño del nodo</div>
+              <Select
+                style={{ width: '100%' }}
+                value={selectedNode.data?.size || 'medium'}
+                onChange={(val) => updateNodeData(selectedNode.id, { size: val })}
+                options={[
+                  { label: 'Pequeño', value: 'small' },
+                  { label: 'Mediano', value: 'medium' },
+                  { label: 'Grande', value: 'large' },
+                ]}
+              />
+            </div>
+            {cfg?.configFields && cfg.configFields.map((field) => {
               const curVal = selectedNode.data?.[field.name];
               if (field.type === 'select') {
                 return (

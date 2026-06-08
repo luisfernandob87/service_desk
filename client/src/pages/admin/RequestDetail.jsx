@@ -4,6 +4,7 @@ import { Card, Typography, Tag, Descriptions, Button, Spin, Space, Divider, Step
 import { ArrowLeftOutlined, BugOutlined, ToolOutlined, SwapOutlined, ExclamationCircleOutlined, CheckCircleOutlined, BellOutlined, BranchesOutlined, PlayCircleOutlined, StopOutlined } from '@ant-design/icons';
 import api from '../../api/client';
 import { TICKET_TYPES, TICKET_STATUS } from '../../utils/constants';
+import { getOrderedNodes, getStepStatus } from '../../utils/workflowHelpers';
 import { formatDate } from '../../utils/formatDate';
 
 const NODE_ICONS = {
@@ -86,43 +87,57 @@ export default function RequestDetail() {
           direction="vertical"
           size="small"
           current={-1}
-          items={(exec.workflow?.nodes || [])
-            .filter(n => n.data?.nodeType !== 'start')
-            .map(node => {
-              const ticketNode = (exec.tickets || []).find(t => t.source_node_id === node.id);
-              const isCondition = node.data?.nodeType === 'condition';
-              const isApproval = node.data?.nodeType === 'approval';
-              const isNotification = node.data?.nodeType === 'notification';
-              const isEnd = node.data?.nodeType === 'end';
-              const isRunning = ticketNode && !['resolved', 'closed'].includes(ticketNode.status);
+          items={(() => {
+            const orderedNodes = getOrderedNodes(exec.workflow?.nodes || [], exec.workflow?.edges || []);
+            return orderedNodes
+              .filter(n => n.data?.nodeType !== 'start')
+              .map(node => {
+                const status = getStepStatus(node, exec, orderedNodes);
+                const ticketNode = (exec.tickets || []).find(t => t.source_node_id === node.id);
+                const isCondition = node.data?.nodeType === 'condition';
+                const isApproval = node.data?.nodeType === 'approval';
+                const isNotification = node.data?.nodeType === 'notification';
+                const isEnd = node.data?.nodeType === 'end';
+                const isWaiting = status === 'wait';
 
-              return {
-                title: (
-                  <Space>
-                    {NODE_ICONS[node.data?.nodeType]}
-                    <span>{NODE_LABELS[node.data?.nodeType] || node.data?.label || node.data?.nodeType}</span>
-                    {node.data?.assigned_group_id && (
-                      <Tag style={{ fontSize: 10 }}>Grupo: #{node.data.assigned_group_id}</Tag>
-                    )}
-                  </Space>
-                ),
-                status: isEnd ? 'finish' : ticketNode
-                  ? (['resolved', 'closed'].includes(ticketNode.status) ? 'finish' : 'process')
-                  : (isCondition || isNotification ? 'finish' : 'wait'),
-                description: ticketNode ? (
-                  <Link to={`/tickets/${ticketNode.id}`} style={{ fontSize: 12 }}>
-                    {ticketNode.code || `#${ticketNode.id}`} - {ticketNode.title} ({TICKET_STATUS[ticketNode.status] || ticketNode.status})
-                    {ticketNode.resolution && <div style={{ color: '#666', marginTop: 4 }}>Resolución: {ticketNode.resolution}</div>}
-                  </Link>
-                ) : isEnd ? (
-                  <span style={{ fontSize: 12, color: '#999' }}>Flujo finalizado</span>
-                ) : isNotification ? (
-                  <span style={{ fontSize: 12, color: '#999' }}>Notificación enviada</span>
-                ) : isCondition ? (
-                  <span style={{ fontSize: 12, color: '#999' }}>Condición evaluada</span>
-                ) : undefined,
-              };
-            })}
+                return {
+                  title: (
+                    <Space>
+                      {NODE_ICONS[node.data?.nodeType]}
+                      <span style={{ color: isWaiting ? '#bbb' : undefined }}>
+                        {NODE_LABELS[node.data?.nodeType] || node.data?.label || node.data?.nodeType}
+                      </span>
+                      {node.data?.assigned_group_id && (
+                        <Tag style={{ fontSize: 10 }}>Grupo: #{node.data.assigned_group_id}</Tag>
+                      )}
+                    </Space>
+                  ),
+                  status,
+                  description: ticketNode ? (
+                    <Link to={`/tickets/${ticketNode.id}`} style={{ fontSize: 12 }}>
+                      {ticketNode.code || `#${ticketNode.id}`} - {ticketNode.title} ({TICKET_STATUS[ticketNode.status] || ticketNode.status})
+                      {ticketNode.resolution && <div style={{ color: '#666', marginTop: 4 }}>Resolución: {ticketNode.resolution}</div>}
+                    </Link>
+                  ) : isEnd ? (
+                    status === 'finish'
+                      ? <span style={{ fontSize: 12, color: '#999' }}>Flujo finalizado</span>
+                      : <span style={{ fontSize: 12, color: '#bbb' }}>Pendiente por ejecutar</span>
+                  ) : isNotification ? (
+                    status === 'finish'
+                      ? <span style={{ fontSize: 12, color: '#999' }}>Notificación enviada</span>
+                      : <span style={{ fontSize: 12, color: '#bbb' }}>Pendiente por ejecutar</span>
+                  ) : isCondition ? (
+                    status === 'finish'
+                      ? <span style={{ fontSize: 12, color: '#999' }}>Condición evaluada</span>
+                      : <span style={{ fontSize: 12, color: '#bbb' }}>Pendiente por ejecutar</span>
+                  ) : isApproval ? (
+                    status === 'wait'
+                      ? <span style={{ fontSize: 12, color: '#bbb' }}>Pendiente por ejecutar</span>
+                      : undefined
+                  ) : undefined,
+                };
+              });
+          })()}
         />
 
         <Divider>Tickets Generados</Divider>

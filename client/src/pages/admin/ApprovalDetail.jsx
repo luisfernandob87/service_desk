@@ -4,6 +4,7 @@ import { Card, Typography, Tag, Descriptions, Button, Spin, Space, Divider, Step
 import { ArrowLeftOutlined, CheckCircleOutlined, CloseCircleOutlined, BugOutlined, ToolOutlined, SwapOutlined, ExclamationCircleOutlined, BellOutlined, BranchesOutlined, StopOutlined } from '@ant-design/icons';
 import api from '../../api/client';
 import { TICKET_TYPES, TICKET_STATUS } from '../../utils/constants';
+import { getOrderedNodes, getStepStatus } from '../../utils/workflowHelpers';
 import { formatDate } from '../../utils/formatDate';
 
 const NODE_ICONS = {
@@ -116,50 +117,63 @@ export default function ApprovalDetail() {
             <Divider>Flujo de Trabajo</Divider>
             <Steps
               direction="vertical" size="small" current={-1}
-              items={(exec.workflow?.nodes || []).filter(n => n.data?.nodeType !== 'start').map(node => {
-                const ticketNode = (exec.tickets || []).find(t => t.source_node_id === node.id);
-                const approvalNode = (exec.approvals || []).find(a => a.source_node_id === node.id);
-                const isEnd = node.data?.nodeType === 'end';
-                const isCondition = node.data?.nodeType === 'condition';
-                const isNotification = node.data?.nodeType === 'notification';
-                const isThisNode = node.id === approval.source_node_id || node.data?.label === approval.stage;
-                const isApprovalType = node.data?.nodeType === 'approval';
-                return {
-                  title: (
-                    <Space>
-                      {NODE_ICONS[node.data?.nodeType]}
-                      <span style={{ fontWeight: isThisNode ? 600 : 400 }}>
-                        {NODE_LABELS[node.data?.nodeType] || node.data?.label || node.data?.nodeType}
-                      </span>
-                      {isThisNode && <Tag color="blue">Actual</Tag>}
-                    </Space>
-                  ),
-                  status: isApprovalType && approvalNode
-                    ? (approvalNode.status === 'approved' ? 'finish' : approvalNode.status === 'rejected' ? 'error' : 'process')
-                    : ticketNode
-                      ? (['resolved', 'closed'].includes(ticketNode.status) ? 'finish' : 'process')
-                      : (isEnd || isCondition || isNotification ? 'finish' : isThisNode ? 'process' : 'wait'),
-                  description: isApprovalType && approvalNode ? (
-                    <div style={{ fontSize: 12 }}>
-                      <div>{approvalNode.code || `APR-${approvalNode.id}`} - {approvalNode.stage}
-                        <Tag style={{ marginLeft: 8 }} color={approvalNode.status === 'approved' ? 'green' : approvalNode.status === 'rejected' ? 'red' : 'gold'}>
-                          {approvalNode.status === 'pending' ? 'Pendiente' : approvalNode.status === 'approved' ? 'Aprobado' : 'Rechazado'}
-                        </Tag>
+              items={(() => {
+                const orderedNodes = getOrderedNodes(exec.workflow?.nodes || [], exec.workflow?.edges || []);
+                return orderedNodes.filter(n => n.data?.nodeType !== 'start').map(node => {
+                  const status = getStepStatus(node, exec, orderedNodes);
+                  const ticketNode = (exec.tickets || []).find(t => t.source_node_id === node.id);
+                  const approvalNode = (exec.approvals || []).find(a => a.source_node_id === node.id);
+                  const isEnd = node.data?.nodeType === 'end';
+                  const isCondition = node.data?.nodeType === 'condition';
+                  const isNotification = node.data?.nodeType === 'notification';
+                  const isThisNode = node.id === approval.source_node_id || node.data?.label === approval.stage;
+                  const isApprovalType = node.data?.nodeType === 'approval';
+                  const isWaiting = status === 'wait';
+                  return {
+                    title: (
+                      <Space>
+                        {NODE_ICONS[node.data?.nodeType]}
+                        <span style={{ fontWeight: isThisNode ? 600 : 400, color: isWaiting ? '#bbb' : undefined }}>
+                          {NODE_LABELS[node.data?.nodeType] || node.data?.label || node.data?.nodeType}
+                        </span>
+                        {isThisNode && <Tag color="blue">Actual</Tag>}
+                      </Space>
+                    ),
+                    status,
+                    description: isApprovalType && approvalNode ? (
+                      <div style={{ fontSize: 12 }}>
+                        <div>{approvalNode.code || `APR-${approvalNode.id}`} - {approvalNode.stage}
+                          <Tag style={{ marginLeft: 8 }} color={approvalNode.status === 'approved' ? 'green' : approvalNode.status === 'rejected' ? 'red' : 'gold'}>
+                            {approvalNode.status === 'pending' ? 'Pendiente' : approvalNode.status === 'approved' ? 'Aprobado' : 'Rechazado'}
+                          </Tag>
+                        </div>
+                        {ticketNode && (
+                          <Link to={`/tickets/${ticketNode.id}`}>
+                            Ticket: {ticketNode.code || `#${ticketNode.id}`} - {ticketNode.title}
+                          </Link>
+                        )}
                       </div>
-                      {ticketNode && (
-                        <Link to={`/tickets/${ticketNode.id}`}>
-                          Ticket: {ticketNode.code || `#${ticketNode.id}`} - {ticketNode.title}
-                        </Link>
-                      )}
-                    </div>
-                  ) : ticketNode ? (
-                    <Link to={`/tickets/${ticketNode.id}`} style={{ fontSize: 12 }}>
-                      {ticketNode.code || `#${ticketNode.id}`} - {ticketNode.title} ({TICKET_STATUS[ticketNode.status] || ticketNode.status})
-                      {ticketNode.resolution && <div style={{ color: '#666' }}>Resolución: {ticketNode.resolution}</div>}
-                    </Link>
-                  ) : isEnd ? <span style={{ fontSize: 12, color: '#999' }}>Flujo finalizado</span> : isNotification ? <span style={{ fontSize: 12, color: '#999' }}>Notificación enviada</span> : isCondition ? <span style={{ fontSize: 12, color: '#999' }}>Condición evaluada</span> : undefined,
-                };
-              })}
+                    ) : ticketNode ? (
+                      <Link to={`/tickets/${ticketNode.id}`} style={{ fontSize: 12 }}>
+                        {ticketNode.code || `#${ticketNode.id}`} - {ticketNode.title} ({TICKET_STATUS[ticketNode.status] || ticketNode.status})
+                        {ticketNode.resolution && <div style={{ color: '#666' }}>Resolución: {ticketNode.resolution}</div>}
+                      </Link>
+                    ) : isEnd ? (
+                      status === 'finish'
+                        ? <span style={{ fontSize: 12, color: '#999' }}>Flujo finalizado</span>
+                        : <span style={{ fontSize: 12, color: '#bbb' }}>Pendiente por ejecutar</span>
+                    ) : isNotification ? (
+                      status === 'finish'
+                        ? <span style={{ fontSize: 12, color: '#999' }}>Notificación enviada</span>
+                        : <span style={{ fontSize: 12, color: '#bbb' }}>Pendiente por ejecutar</span>
+                    ) : isCondition ? (
+                      status === 'finish'
+                        ? <span style={{ fontSize: 12, color: '#999' }}>Condición evaluada</span>
+                        : <span style={{ fontSize: 12, color: '#bbb' }}>Pendiente por ejecutar</span>
+                    ) : isWaiting ? <span style={{ fontSize: 12, color: '#bbb' }}>Pendiente por ejecutar</span> : undefined,
+                  };
+                });
+              })()}
             />
 
             <Divider>Datos del Ticket</Divider>

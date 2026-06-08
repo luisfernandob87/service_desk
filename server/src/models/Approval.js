@@ -9,7 +9,6 @@ const Approval = sequelize.define('Approval', {
   },
   ticket_id: {
     type: DataTypes.INTEGER,
-    allowNull: false,
   },
   stage: {
     type: DataTypes.STRING(50),

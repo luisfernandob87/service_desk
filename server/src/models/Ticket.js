@@ -11,15 +11,15 @@ const Ticket = sequelize.define('Ticket', {
   assigned_group_id: { type: DataTypes.INTEGER },
   assigned_user_id: { type: DataTypes.INTEGER },
   type: {
-    type: DataTypes.ENUM('incident', 'work_order', 'change_request', 'problem'),
+    type: DataTypes.STRING(20),
     allowNull: false,
   },
   status: {
-    type: DataTypes.ENUM('new', 'in_progress', 'on_hold', 'resolved', 'closed', 'cancelled'),
+    type: DataTypes.STRING(20),
     defaultValue: 'new',
   },
   priority: {
-    type: DataTypes.ENUM('low', 'medium', 'high', 'critical'),
+    type: DataTypes.STRING(20),
     defaultValue: 'medium',
   },
   title: { type: DataTypes.STRING(300), allowNull: false },

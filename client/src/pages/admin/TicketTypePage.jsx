@@ -7,7 +7,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { formatDate } from '../../utils/formatDate';
 import { TICKET_TYPES, TICKET_STATUS, PRIORITIES } from '../../utils/constants';
 
-const statusColors = { new: 'blue', in_progress: 'orange', on_hold: 'gold', resolved: 'green', closed: 'default', cancelled: 'red' };
+const statusColors = { new: 'blue', in_progress: 'orange', on_hold: 'gold', resolved: 'green', closed: 'default', cancelled: 'red', reopened: 'purple' };
 const priorityColors = { low: 'green', medium: 'gold', high: 'orange', critical: 'red' };
 
 export default function TicketTypePage({ type, title, icon }) {

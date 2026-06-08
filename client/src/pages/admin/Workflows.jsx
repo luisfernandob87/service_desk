@@ -116,10 +116,6 @@ export default function Workflows() {
     { title: 'Nombre', dataIndex: 'name', key: 'name' },
     { title: 'Descripción', dataIndex: 'description', key: 'description', ellipsis: true },
     {
-      title: 'Pasos', key: 'nodes', width: 260,
-      render: (_, r) => getNodeTypesSummary(r.nodes),
-    },
-    {
       title: 'Activo', dataIndex: 'is_active', key: 'is_active', width: 80,
       render: (v) => v === false ? <Tag color="red">No</Tag> : <Tag color="green">Sí</Tag>,
     },

@@ -75,11 +75,13 @@ exports.getById = async (req, res) => {
       ? { workflow_execution_id: ticket.workflow_execution_id }
       : { ticket_id: ticket.id };
 
-    ticket.comments = await TicketComment.findAll({
+    const comments = await TicketComment.findAll({
       where: commentWhere,
       include: [{ model: User, as: 'user', attributes: ['id', 'full_name', 'email'] }],
-      order: [['created_at', 'ASC']],
+      order: [['createdAt', 'ASC']],
     });
+
+    ticket.setDataValue('comments', comments);
 
     res.json(ticket);
   } catch (error) {
@@ -180,7 +182,7 @@ exports.updateStatus = async (req, res) => {
     if (!ticket) return res.status(404).json({ error: 'Ticket no encontrado' });
 
     const { status, resolution } = req.body;
-    const valid = ['new', 'in_progress', 'on_hold', 'resolved', 'closed', 'cancelled'];
+    const valid = ['new', 'in_progress', 'on_hold', 'resolved', 'closed', 'cancelled', 'reopened'];
     if (!valid.includes(status)) {
       return res.status(400).json({ error: 'Estado inválido' });
     }
@@ -231,6 +233,7 @@ exports.updateStatus = async (req, res) => {
       on_hold: 'en espera',
       in_progress: 'en progreso',
       new: 'nuevo',
+      reopened: 'reabierto',
     };
 
     await notificationService.createNotification({
@@ -249,6 +252,120 @@ exports.updateStatus = async (req, res) => {
   } catch (error) {
     console.error('Status update error:', error);
     res.status(500).json({ error: 'Error al actualizar estado' });
+  }
+};
+
+exports.update = async (req, res) => {
+  try {
+    const ticket = await Ticket.findByPk(req.params.id);
+    if (!ticket) return res.status(404).json({ error: 'Ticket no encontrado' });
+
+    const { status, resolution, assigned_group_id, assigned_user_id, priority } = req.body;
+
+    const validStatuses = ['new', 'in_progress', 'on_hold', 'resolved', 'closed', 'cancelled', 'reopened'];
+    const validPriorities = ['low', 'medium', 'high', 'critical'];
+
+    if (status && validStatuses.includes(status)) {
+      const previousStatus = ticket.status;
+      const now = new Date();
+
+      if (status === 'on_hold' && previousStatus !== 'on_hold') {
+        ticket.sla_paused_at = now;
+      }
+
+      if (status === 'in_progress' && previousStatus === 'on_hold' && ticket.sla_paused_at) {
+        const pausedMs = now.getTime() - new Date(ticket.sla_paused_at).getTime();
+        const pausedMin = Math.floor(pausedMs / 60000);
+        ticket.sla_paused_minutes = (ticket.sla_paused_minutes || 0) + pausedMin;
+        ticket.sla_paused_at = null;
+        if (ticket.sla_resolution_deadline) {
+          ticket.sla_resolution_deadline = new Date(ticket.sla_resolution_deadline.getTime() + pausedMs);
+        }
+        if (ticket.sla_response_deadline) {
+          ticket.sla_response_deadline = new Date(ticket.sla_response_deadline.getTime() + pausedMs);
+        }
+      }
+
+      if (status === 'in_progress' && previousStatus === 'new' && !ticket.first_response_at) {
+        ticket.first_response_at = now;
+      }
+
+      if ((status === 'resolved' || status === 'closed') && !ticket.resolved_at) {
+        ticket.resolved_at = now;
+      }
+
+      if (previousStatus === 'resolved' && status !== 'resolved' && status !== 'closed') {
+        ticket.resolved_at = null;
+      }
+
+      ticket.status = status;
+    }
+
+    if (resolution !== undefined) {
+      ticket.resolution = resolution;
+    }
+
+    if (assigned_group_id !== undefined) {
+      ticket.assigned_group_id = assigned_group_id;
+    }
+
+    if (assigned_user_id !== undefined) {
+      ticket.assigned_user_id = assigned_user_id;
+      await notificationService.createNotification({
+        user_id: assigned_user_id,
+        type: 'ticket_assigned',
+        title: 'Ticket asignado',
+        message: `Te han asignado el ticket "${ticket.title}"`,
+        link: `/tickets/${ticket.id}`,
+      });
+    }
+
+    if (priority !== undefined && validPriorities.includes(priority)) {
+      ticket.priority = priority;
+      await slaEngine.recalculateSla(ticket);
+    }
+
+    await ticket.save();
+
+    if (status && status !== ticket._previousDataValues.status) {
+      const statusLabels = {
+        resolved: 'resuelto', closed: 'cerrado', cancelled: 'cancelado',
+        on_hold: 'en espera', in_progress: 'en progreso', new: 'nuevo', reopened: 'reabierto',
+      };
+      await notificationService.createNotification({
+        user_id: ticket.requester_id,
+        type: 'ticket_status',
+        title: `Ticket ${statusLabels[status] || 'actualizado'}`,
+        message: `El ticket "${ticket.title}" cambió a estado: ${statusLabels[status] || status}`,
+        link: `/tickets/${ticket.id}`,
+      });
+    }
+
+    if (ticket.workflow_execution_id && (ticket.status === 'resolved' || ticket.status === 'closed')) {
+      await workflowEngine.advanceExecution(ticket, ticket.status);
+    }
+
+    const result = await Ticket.findByPk(ticket.id, {
+      include: [
+        { model: Service, as: 'service', attributes: ['id', 'name'] },
+        { model: User, as: 'requester', attributes: ['id', 'full_name', 'email'] },
+        { model: User, as: 'assignedUser', attributes: ['id', 'full_name', 'email'] },
+        { model: SupportGroup, as: 'assignedGroup', attributes: ['id', 'name'] },
+        {
+          model: TicketRelation, as: 'childRelations',
+          include: [{ model: Ticket, as: 'childTicket', attributes: ['id', 'title', 'type', 'status'] }],
+        },
+        {
+          model: TicketRelation, as: 'parentRelations',
+          include: [{ model: Ticket, as: 'parentTicket', attributes: ['id', 'title', 'type', 'status'] }],
+        },
+      ],
+    });
+
+    res.json(result);
+  } catch (error) {
+    console.error('Ticket update error:', error);
+    res.status(500).json({ error: 'Error al actualizar ticket' });
   }
 };
 

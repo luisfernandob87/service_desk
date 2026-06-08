@@ -6,7 +6,7 @@ import api from '../../api/client';
 import { TICKET_TYPES, TICKET_STATUS } from '../../utils/constants';
 import { formatDateShort } from '../../utils/formatDate';
 
-const statusColors = { new: 'blue', in_progress: 'orange', on_hold: 'gold', resolved: 'green', closed: 'default', cancelled: 'red' };
+const statusColors = { new: 'blue', in_progress: 'orange', on_hold: 'gold', resolved: 'green', closed: 'default', cancelled: 'red', reopened: 'purple' };
 const typeColors = { incident: 'red', work_order: 'purple', change_request: 'gold', problem: 'volcano' };
 
 export default function AdminTickets() {

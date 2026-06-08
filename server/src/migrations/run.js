@@ -196,7 +196,8 @@ async function runMigrations() {
     await sequelize.query(`DO $$ BEGIN ALTER TABLE tickets ADD COLUMN IF NOT EXISTS sla_paused_at TIMESTAMP WITH TIME ZONE; EXCEPTION WHEN OTHERS THEN NULL; END $$;`);
     await sequelize.query(`DO $$ BEGIN ALTER TABLE tickets ADD COLUMN IF NOT EXISTS sla_paused_minutes INTEGER DEFAULT 0; EXCEPTION WHEN OTHERS THEN NULL; END $$;`);
     await sequelize.query(`ALTER TABLE tickets DROP CONSTRAINT IF EXISTS tickets_status_check;`);
-    await sequelize.query(`ALTER TABLE tickets ADD CONSTRAINT tickets_status_check CHECK (status IN ('new','in_progress','on_hold','resolved','closed','cancelled'));`);
+    await sequelize.query(`ALTER TABLE tickets DROP CONSTRAINT IF EXISTS tickets_status_check;`);
+    await sequelize.query(`ALTER TABLE tickets ADD CONSTRAINT tickets_status_check CHECK (status IN ('new','in_progress','on_hold','resolved','closed','cancelled','reopened'));`);
 
     await sequelize.query(`
       CREATE TABLE IF NOT EXISTS ticket_comments (
@@ -470,6 +471,8 @@ async function runMigrations() {
       EXCEPTION WHEN OTHERS THEN NULL;
       END $$;
     `);
+
+    await sequelize.query(`ALTER TABLE approvals ALTER COLUMN ticket_id DROP NOT NULL;`);
 
     console.log('Migrations completed successfully.');
   } catch (error) {

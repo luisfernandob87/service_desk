@@ -60,25 +60,9 @@ async function executeNode(execution, node, workflowNodes, workflowEdges) {
     }
 
     case 'approval': {
-      const approvalTicket = await Ticket.create({
-        organization_id: execution.organization_id,
-        service_id: execution.service_id,
-        requester_id: execution.requester_id,
-        title: context.title || 'Solicitud de aprobación',
-        assigned_group_id: execution.assigned_group_id || null,
-        description: context.description || '',
-        priority: 'medium',
-        type: 'incident',
-        status: 'new',
-        form_data: context.form_data || {},
-        workflow_execution_id: execution.id,
-        source_node_id: node.id,
-      });
-
       const approverId = node.data?.assigned_user_id || node.data?.approver_user_id;
       const approverGroupId = node.data?.assigned_group_id;
       const approval = await Approval.create({
-        ticket_id: approvalTicket.id,
         stage: node.data?.label || 'Aprobación',
         status: 'pending',
         requested_from: approverId || execution.requester_id,
