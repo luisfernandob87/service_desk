@@ -7,6 +7,7 @@ import Login from './pages/Login';
 import ServiceCatalog from './pages/public/ServiceCatalog';
 import ServiceRequest from './pages/public/ServiceRequest';
 import MyRequests from './pages/user/MyRequests';
+import UserRequestDetail from './pages/user/RequestDetail';
 import TicketDetail from './pages/user/TicketDetail';
 import Dashboard from './pages/admin/Dashboard';
 import Organizations from './pages/admin/Organizations';
@@ -57,6 +58,7 @@ function AppRoutes() {
 
       {/* User pages */}
       <Route path="/my-requests" element={<ProtectedRoute><MyRequests /></ProtectedRoute>} />
+      <Route path="/my-requests/:id" element={<ProtectedRoute><UserRequestDetail /></ProtectedRoute>} />
       <Route path="/tickets/:id" element={<ProtectedRoute><TicketDetail /></ProtectedRoute>} />
 
       {/* Admin pages */}

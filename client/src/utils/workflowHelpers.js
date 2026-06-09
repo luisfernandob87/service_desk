@@ -34,7 +34,7 @@ export function getStepStatus(node, execution, orderedNodes) {
   const isNotification = node.data?.nodeType === 'notification';
   const isApprovalType = node.data?.nodeType === 'approval';
 
-  if (execution.status === 'completed') return 'finish';
+  if (execution.status === 'completed' || execution.status === 'closed') return 'finish';
   if (execution.status === 'cancelled') {
     const approvalNode = (execution.approvals || []).find(a => a.source_node_id === node.id);
     if (isApprovalType && approvalNode?.status === 'rejected') return 'error';

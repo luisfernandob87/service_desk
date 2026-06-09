@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Card, Typography, Tag, Descriptions, Button, Spin, Space, Divider, Steps, Table } from 'antd';
-import { ArrowLeftOutlined, BugOutlined, ToolOutlined, SwapOutlined, ExclamationCircleOutlined, CheckCircleOutlined, BellOutlined, BranchesOutlined, PlayCircleOutlined, StopOutlined, LinkOutlined } from '@ant-design/icons';
+import { Card, Typography, Tag, Descriptions, Button, Spin, Space, Divider, Steps, Table, Modal, message } from 'antd';
+import { ArrowLeftOutlined, BugOutlined, ToolOutlined, SwapOutlined, ExclamationCircleOutlined, CheckCircleOutlined, BellOutlined, BranchesOutlined, PlayCircleOutlined, StopOutlined, CloseCircleOutlined, ReloadOutlined } from '@ant-design/icons';
 import api from '../../api/client';
+import { useAuth } from '../../contexts/AuthContext';
 import { TICKET_TYPES, TICKET_STATUS } from '../../utils/constants';
-import { getOrderedNodes, getStepStatus } from '../../utils/workflowHelpers';
 import { formatDate } from '../../utils/formatDate';
+import { getOrderedNodes, getStepStatus } from '../../utils/workflowHelpers';
 
 const NODE_ICONS = {
   start: <PlayCircleOutlined />,
@@ -26,21 +27,44 @@ const NODE_LABELS = {
   condition: 'Condición', end: 'Fin',
 };
 
-export default function RequestDetail() {
+export default function UserRequestDetail() {
+  const { user } = useAuth();
   const { id } = useParams();
   const navigate = useNavigate();
   const [exec, setExec] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await api.get(`/workflow-executions/${id}`);
-        setExec(res.data);
-      } catch { /* */ }
-      finally { setLoading(false) }
-    })();
-  }, [id]);
+  const load = async () => {
+    try {
+      const res = await api.get(`/workflow-executions/${id}`);
+      setExec(res.data);
+    } catch { navigate('/my-requests') }
+    finally { setLoading(false) }
+  };
+
+  useEffect(() => { load() }, [id]);
+
+  const handleClose = async () => {
+    setActionLoading(true);
+    try {
+      await api.put(`/workflow-executions/${id}/close`);
+      message.success('Petición cerrada exitosamente');
+      load();
+    } catch (err) { message.error(err.response?.data?.error || 'Error al cerrar') }
+    finally { setActionLoading(false) }
+  };
+
+  const handleReopen = async () => {
+    setActionLoading(true);
+    try {
+      const res = await api.post(`/workflow-executions/${id}/reopen`);
+      const newExec = res.data;
+      message.success('Nueva petición creada — el flujo de trabajo se ha reiniciado');
+      navigate(`/my-requests/${newExec.id}`);
+    } catch (err) { message.error(err.response?.data?.error || 'Error al reabrir') }
+    finally { setActionLoading(false) }
+  };
 
   if (loading) return <div style={{ textAlign: 'center', padding: 80 }}><Spin size="large" /></div>;
   if (!exec) return <Typography.Text type="danger">Petición no encontrada</Typography.Text>;
@@ -50,12 +74,11 @@ export default function RequestDetail() {
     { title: 'Tipo', dataIndex: 'type', key: 'type', render: (v) => <Tag>{TICKET_TYPES[v] || v}</Tag> },
     { title: 'Título', dataIndex: 'title', key: 'title' },
     { title: 'Estado', dataIndex: 'status', key: 'status', render: (v) => <Tag>{TICKET_STATUS[v] || v}</Tag> },
-    { title: 'Resolución', dataIndex: 'resolution', key: 'resolution', render: (v) => v || '-' },
   ];
 
   return (
-    <div style={{ maxWidth: 1000, margin: '0 auto' }}>
-      <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/admin/peticiones')} style={{ marginBottom: 16 }}>Volver</Button>
+    <div style={{ maxWidth: 1000, margin: '0 auto', padding: 24 }}>
+      <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/my-requests')} style={{ marginBottom: 16 }}>Volver</Button>
       <Card>
         <Space>
           <Typography.Title level={4} style={{ margin: 0 }}>Petición #{exec.request_number}</Typography.Title>
@@ -64,30 +87,30 @@ export default function RequestDetail() {
           </Tag>
         </Space>
 
+        {exec.status === 'completed' && (
+          <div style={{ marginTop: 16, display: 'flex', gap: 12 }}>
+            <Button type="primary" icon={<ReloadOutlined />} loading={actionLoading} onClick={handleReopen}>
+              Reabrir caso
+            </Button>
+            <Button icon={<CloseCircleOutlined />} loading={actionLoading} onClick={handleClose}>
+              Cerrar caso
+            </Button>
+          </div>
+        )}
+
         <Descriptions column={2} size="small" bordered style={{ marginTop: 16 }}>
           <Descriptions.Item label="Servicio">{exec.service?.name || '-'}</Descriptions.Item>
-          <Descriptions.Item label="Solicitante">{exec.requester?.full_name || '-'}</Descriptions.Item>
-          <Descriptions.Item label="Grupo asignado">{exec.assignedGroup?.name || '-'}</Descriptions.Item>
           <Descriptions.Item label="Workflow">{exec.workflow?.name || '-'}</Descriptions.Item>
           {exec.parentExecution && (
             <Descriptions.Item label="Reapertura de" span={2}>
-              <Link to={`/admin/peticiones/${exec.parentExecution.id}`}>
-                <LinkOutlined /> Petición #{exec.parentExecution.request_number || exec.parentExecution.id}
+              <Link to={`/my-requests/${exec.parentExecution.id}`}>
+                Petición #{exec.parentExecution.request_number || exec.parentExecution.id}
               </Link>
             </Descriptions.Item>
           )}
           <Descriptions.Item label="Iniciado">{formatDate(exec.createdAt)}</Descriptions.Item>
           <Descriptions.Item label="Completado">{exec.completed_at ? formatDate(exec.completed_at) : '-'}</Descriptions.Item>
         </Descriptions>
-
-        <Divider>Datos del Formulario</Divider>
-        {exec.context?.form_data && Object.keys(exec.context.form_data).length > 0 ? (
-          Object.entries(exec.context.form_data).map(([k, v]) => (
-            <div key={k}><strong>{k}:</strong> {typeof v === 'object' ? JSON.stringify(v) : String(v)}</div>
-          ))
-        ) : (
-          <Typography.Text type="secondary">Sin datos adicionales</Typography.Text>
-        )}
 
         <Divider>Flujo de Trabajo</Divider>
         <Steps
@@ -125,7 +148,19 @@ export default function RequestDetail() {
                       {ticketNode.code || `#${ticketNode.id}`} - {ticketNode.title} ({TICKET_STATUS[ticketNode.status] || ticketNode.status})
                       {ticketNode.resolution && <div style={{ color: '#666', marginTop: 4 }}>Resolución: {ticketNode.resolution}</div>}
                     </Link>
-                  ) : isEnd ? (
+                  ) : isApproval ? (() => {
+                    const apNode = (exec.approvals || []).find(a => a.source_node_id === node.id);
+                    if (!apNode) return <span style={{ fontSize: 12, color: '#bbb' }}>Pendiente por ejecutar</span>;
+                    return (
+                      <div style={{ fontSize: 12 }}>
+                        <span>{apNode.code || `APR-${apNode.id}`} - {apNode.stage}</span>
+                        <Tag style={{ marginLeft: 8 }} color={apNode.status === 'approved' ? 'green' : apNode.status === 'rejected' ? 'red' : 'gold'}>
+                          {apNode.status === 'pending' ? 'Pendiente' : apNode.status === 'approved' ? 'Aprobado' : 'Rechazado'}
+                        </Tag>
+                        {apNode.rejection_reason && <div style={{ color: '#ff4d4f', marginTop: 2 }}>Razón: {apNode.rejection_reason}</div>}
+                      </div>
+                    );
+                  })() : isEnd ? (
                     status === 'finish'
                       ? <span style={{ fontSize: 12, color: '#999' }}>Flujo finalizado</span>
                       : <span style={{ fontSize: 12, color: '#bbb' }}>Pendiente por ejecutar</span>
@@ -137,10 +172,6 @@ export default function RequestDetail() {
                     status === 'finish'
                       ? <span style={{ fontSize: 12, color: '#999' }}>Condición evaluada</span>
                       : <span style={{ fontSize: 12, color: '#bbb' }}>Pendiente por ejecutar</span>
-                  ) : isApproval ? (
-                    status === 'wait'
-                      ? <span style={{ fontSize: 12, color: '#bbb' }}>Pendiente por ejecutar</span>
-                      : undefined
                   ) : undefined,
                 };
               });

@@ -7,7 +7,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { formatDate } from '../../utils/formatDate';
 import { TICKET_STATUS } from '../../utils/constants';
 
-const statusColors = { running: 'blue', completed: 'green', cancelled: 'red' };
+const statusColors = { active: 'blue', on_hold: 'gold', completed: 'green', closed: 'default', cancelled: 'red' };
 
 export default function RequestsPage() {
   const { user } = useAuth();
@@ -44,7 +44,7 @@ export default function RequestsPage() {
       key: 'status',
       render: (v) => (
         <Tag color={statusColors[v]}>
-          {v === 'running' ? 'En ejecución' : v === 'completed' ? 'Completado' : 'Cancelado'}
+          {v === 'active' ? 'Activo' : v === 'on_hold' ? 'En Espera' : v === 'completed' ? 'Completado' : v === 'closed' ? 'Cerrado' : 'Cancelado'}
         </Tag>
       ),
     },
@@ -83,8 +83,10 @@ export default function RequestsPage() {
         value={statusFilter || undefined}
         onChange={v => setStatusFilter(v || '')}
         options={[
-          { label: 'En ejecución', value: 'running' },
+          { label: 'Activo', value: 'active' },
+          { label: 'En Espera', value: 'on_hold' },
           { label: 'Completado', value: 'completed' },
+          { label: 'Cerrado', value: 'closed' },
           { label: 'Cancelado', value: 'cancelled' },
         ]}
       />

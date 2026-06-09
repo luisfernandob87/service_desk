@@ -117,12 +117,23 @@ exports.create = async (req, res) => {
             { model: Service, as: 'service', attributes: ['id', 'name'] },
             { model: User, as: 'requester', attributes: ['id', 'full_name', 'email'] },
             { model: SupportGroup, as: 'assignedGroup', attributes: ['id', 'name'] },
-            { model: WorkflowExecution, as: 'execution', attributes: ['id', 'status', 'context'] },
+            { model: WorkflowExecution, as: 'execution', attributes: ['id', 'status', 'context' ] },
           ],
         });
 
         if (firstTicket) return res.status(201).json(firstTicket);
+
+        const execData = await WorkflowExecution.findByPk(execution.id, {
+          include: [
+            { model: Workflow, as: 'workflow', attributes: ['id', 'name'] },
+            { model: Service, as: 'service', attributes: ['id', 'name'] },
+            { model: User, as: 'requester', attributes: ['id', 'full_name', 'email'] },
+          ],
+        });
+        return res.status(201).json({ execution: execData });
       }
+
+      return res.status(500).json({ error: 'El flujo de trabajo no está disponible o no tiene nodos configurados' });
     }
 
     if (!req.body.type) {
@@ -244,8 +255,11 @@ exports.updateStatus = async (req, res) => {
       link: `/tickets/${ticket.id}`,
     });
 
-    if (ticket.workflow_execution_id && (status === 'resolved' || status === 'closed')) {
-      await workflowEngine.advanceExecution(ticket, status);
+    if (ticket.workflow_execution_id) {
+      if (status === 'resolved' || status === 'closed') {
+        await workflowEngine.advanceExecution(ticket, status);
+      }
+      await workflowEngine.syncExecutionStatus(ticket.workflow_execution_id);
     }
 
     res.json(ticket);
@@ -341,8 +355,11 @@ exports.update = async (req, res) => {
       });
     }
 
-    if (ticket.workflow_execution_id && (ticket.status === 'resolved' || ticket.status === 'closed')) {
-      await workflowEngine.advanceExecution(ticket, ticket.status);
+    if (ticket.workflow_execution_id) {
+      if (ticket.status === 'resolved' || ticket.status === 'closed') {
+        await workflowEngine.advanceExecution(ticket, ticket.status);
+      }
+      await workflowEngine.syncExecutionStatus(ticket.workflow_execution_id);
     }
 
     const result = await Ticket.findByPk(ticket.id, {

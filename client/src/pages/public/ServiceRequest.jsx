@@ -59,15 +59,25 @@ export default function ServiceRequest() {
       const payload = {
         organization_id: orgId,
         service_id: service.id,
-        type: 'incident',
         title,
         priority,
         description: values.description || '',
         form_data: formData,
       };
 
-      const ticketRes = await api.post('/tickets', payload);
-      const ticket = ticketRes.data;
+      const firstNonStart = service.workflow?.nodes?.find(n => n.data?.nodeType !== 'start');
+      payload.type = firstNonStart?.data?.nodeType || 'incident';
+
+      const res = await api.post('/tickets', payload);
+      const data = res.data;
+
+      if (data.execution) {
+        message.success('Solicitud creada exitosamente');
+        navigate(`/my-requests`);
+        return;
+      }
+
+      const ticket = data;
       const fileRefs = { ...formData };
 
       for (const ff of fileFields) {

@@ -378,7 +378,7 @@ async function runMigrations() {
         assigned_group_id INTEGER REFERENCES support_groups(id),
         request_number VARCHAR(20),
         current_node_id VARCHAR(100),
-        status VARCHAR(20) DEFAULT 'running' CHECK (status IN ('running','completed','cancelled')),
+        status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active','on_hold','completed','closed','cancelled')),
         context JSONB DEFAULT '{}',
         started_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
         completed_at TIMESTAMP WITH TIME ZONE,
@@ -473,6 +473,31 @@ async function runMigrations() {
     `);
 
     await sequelize.query(`ALTER TABLE approvals ALTER COLUMN ticket_id DROP NOT NULL;`);
+
+    await sequelize.query(`
+      UPDATE workflow_executions SET status = 'active' WHERE status = 'running';
+    `);
+    await sequelize.query(`
+      ALTER TABLE workflow_executions DROP CONSTRAINT IF EXISTS workflow_executions_status_check;
+    `);
+    await sequelize.query(`
+      ALTER TABLE workflow_executions ADD CONSTRAINT workflow_executions_status_check
+        CHECK (status IN ('active','on_hold','completed','closed','cancelled'));
+    `);
+
+    await sequelize.query(`
+      DO $$ BEGIN
+        ALTER TABLE workflow_executions ADD COLUMN IF NOT EXISTS closed_at TIMESTAMP WITH TIME ZONE;
+      EXCEPTION WHEN OTHERS THEN NULL;
+      END $$;
+    `);
+
+    await sequelize.query(`
+      DO $$ BEGIN
+        ALTER TABLE workflow_executions ADD COLUMN IF NOT EXISTS parent_execution_id INTEGER REFERENCES workflow_executions(id) ON DELETE SET NULL;
+      EXCEPTION WHEN OTHERS THEN NULL;
+      END $$;
+    `);
 
     console.log('Migrations completed successfully.');
   } catch (error) {

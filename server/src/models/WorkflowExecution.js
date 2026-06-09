@@ -32,8 +32,8 @@ const WorkflowExecution = sequelize.define('WorkflowExecution', {
     type: DataTypes.STRING(100),
   },
   status: {
-    type: DataTypes.ENUM('running', 'completed', 'cancelled'),
-    defaultValue: 'running',
+    type: DataTypes.STRING(20),
+    defaultValue: 'active',
   },
   context: {
     type: DataTypes.JSONB,
@@ -44,6 +44,12 @@ const WorkflowExecution = sequelize.define('WorkflowExecution', {
   },
   completed_at: {
     type: DataTypes.DATE,
+  },
+  closed_at: {
+    type: DataTypes.DATE,
+  },
+  parent_execution_id: {
+    type: DataTypes.INTEGER,
   },
 }, {
   tableName: 'workflow_executions',

@@ -218,8 +218,8 @@ export default function TicketDetail() {
         {execution && (
           <>
             <Divider>Flujo de Trabajo</Divider>
-            <Tag color={execution.status === 'completed' ? 'green' : execution.status === 'cancelled' ? 'red' : 'blue'}>
-              {execution.status === 'running' ? 'En ejecución' : execution.status === 'completed' ? 'Completado' : 'Cancelado'}
+            <Tag color={execution.status === 'completed' ? 'green' : execution.status === 'closed' ? 'default' : execution.status === 'cancelled' ? 'red' : execution.status === 'on_hold' ? 'gold' : 'blue'}>
+              {execution.status === 'active' ? 'Activo' : execution.status === 'on_hold' ? 'En Espera' : execution.status === 'completed' ? 'Completado' : execution.status === 'closed' ? 'Cerrado' : 'Cancelado'}
             </Tag>
             <Steps
               direction="vertical"

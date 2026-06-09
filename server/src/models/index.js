@@ -83,6 +83,8 @@ WorkflowExecution.belongsTo(User, { foreignKey: 'requester_id', as: 'requester' 
 WorkflowExecution.belongsTo(SupportGroup, { foreignKey: 'assigned_group_id', as: 'assignedGroup' });
 WorkflowExecution.hasMany(Ticket, { foreignKey: 'workflow_execution_id', as: 'tickets' });
 Ticket.belongsTo(WorkflowExecution, { foreignKey: 'workflow_execution_id', as: 'execution' });
+WorkflowExecution.belongsTo(WorkflowExecution, { foreignKey: 'parent_execution_id', as: 'parentExecution' });
+WorkflowExecution.hasMany(WorkflowExecution, { foreignKey: 'parent_execution_id', as: 'childExecutions' });
 
 /* Approval associations */
 WorkflowExecution.hasMany(Approval, { foreignKey: 'workflow_execution_id', as: 'approvals' });

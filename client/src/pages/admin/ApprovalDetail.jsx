@@ -108,8 +108,8 @@ export default function ApprovalDetail() {
               <Descriptions.Item label="Solicitante">{exec.requester?.full_name || '-'}</Descriptions.Item>
               <Descriptions.Item label="Servicio">{exec.service?.name || '-'}</Descriptions.Item>
               <Descriptions.Item label="Estado petición">
-                <Tag color={exec.status === 'completed' ? 'green' : exec.status === 'cancelled' ? 'red' : 'blue'}>
-                  {exec.status === 'running' ? 'En ejecución' : exec.status === 'completed' ? 'Completado' : 'Cancelado'}
+                <Tag color={exec.status === 'completed' ? 'green' : exec.status === 'closed' ? 'default' : exec.status === 'cancelled' ? 'red' : exec.status === 'on_hold' ? 'gold' : 'blue'}>
+                  {exec.status === 'active' ? 'Activo' : exec.status === 'on_hold' ? 'En Espera' : exec.status === 'completed' ? 'Completado' : exec.status === 'closed' ? 'Cerrado' : 'Cancelado'}
                 </Tag>
               </Descriptions.Item>
             </Descriptions>

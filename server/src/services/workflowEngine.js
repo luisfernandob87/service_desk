@@ -159,6 +159,7 @@ async function executeNode(execution, node, workflowNodes, workflowEdges) {
       execution.completed_at = new Date();
       execution.current_node_id = node.id;
       await execution.save();
+      await checkAllTicketsResolved(execution);
       return null;
     }
 
@@ -217,7 +218,7 @@ async function startExecution(serviceId, requesterId, organizationId, formData) 
       requester_id: requesterId,
       assigned_group_id: service.default_assigned_group_id,
       current_node_id: null,
-      status: 'running',
+      status: 'active',
       context: formData || {},
       started_at: new Date(),
     });
@@ -238,7 +239,7 @@ async function advanceExecution(ticket, newStatus) {
   if (newStatus !== 'resolved' && newStatus !== 'closed') return null;
 
   const execution = await WorkflowExecution.findByPk(ticket.workflow_execution_id);
-  if (!execution || execution.status !== 'running') return null;
+  if (!execution || execution.status !== 'active') return null;
 
   const workflow = await Workflow.findByPk(execution.workflow_id, { paranoid: false });
   if (!workflow?.nodes?.length || !workflow.is_active || workflow.deleted_at) return null;
@@ -266,4 +267,28 @@ async function advanceExecution(ticket, newStatus) {
   return advanceToNextNode(execution, workflowNodes, workflowEdges);
 }
 
-module.exports = { startExecution, advanceExecution, advanceToNextNode };
+async function syncExecutionStatus(executionId) {
+  const execution = await WorkflowExecution.findByPk(executionId);
+  if (!execution || ['completed', 'closed', 'cancelled'].includes(execution.status)) return;
+
+  const tickets = await Ticket.findAll({ where: { workflow_execution_id: executionId } });
+
+  if (tickets.some(t => t.status === 'on_hold')) {
+    execution.status = 'on_hold';
+  } else {
+    execution.status = 'active';
+  }
+  await execution.save();
+}
+
+async function checkAllTicketsResolved(execution) {
+  const tickets = await Ticket.findAll({ where: { workflow_execution_id: execution.id } });
+  const allResolved = tickets.every(t => ['resolved', 'closed'].includes(t.status));
+  if (allResolved || tickets.length === 0) {
+    execution.status = 'completed';
+    execution.completed_at = new Date();
+    await execution.save();
+  }
+}
+
+module.exports = { startExecution, advanceExecution, advanceToNextNode, syncExecutionStatus };

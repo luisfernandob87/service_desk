@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Table, Tag, Typography, Button, Card, Space, Tooltip } from 'antd';
+import { LinkOutlined } from '@ant-design/icons';
 import api from '../../api/client';
 import { useAuth } from '../../contexts/AuthContext';
 import { TICKET_STATUS } from '../../utils/constants';
 import { formatDateShort } from '../../utils/formatDate';
 
 const statusColors = {
-  running: 'blue', completed: 'green', cancelled: 'red',
+  active: 'blue', on_hold: 'gold', completed: 'green', closed: 'default', cancelled: 'red',
 };
 
 export default function MyRequests() {
@@ -29,14 +30,23 @@ export default function MyRequests() {
   const columns = [
     {
       title: 'Petición', dataIndex: 'request_number', key: 'request_number',
-      render: (v, r) => <Link to={`/admin/peticiones/${r.id}`}>#{v || r.id}</Link>,
+      render: (v, r) => <Link to={`/my-requests/${r.id}`}>#{v || r.id}</Link>,
     },
-    { title: 'Servicio', key: 'service', render: (_, r) => r.service?.name || '-' },
+    { title: 'Servicio', key: 'service', render: (_, r) => (
+      <Space>
+        {r.service?.name || '-'}
+        {r.parentExecution && (
+          <Tooltip title={`Reapertura de petición #${r.parentExecution.request_number || r.parentExecution.id}`}>
+            <Link to={`/my-requests/${r.parentExecution.id}`}><LinkOutlined /></Link>
+          </Tooltip>
+        )}
+      </Space>
+    )},
     {
       title: 'Estado', dataIndex: 'status', key: 'status',
       render: v => (
         <Tag color={statusColors[v]}>
-          {v === 'running' ? 'En ejecución' : v === 'completed' ? 'Completado' : 'Cancelado'}
+          {v === 'active' ? 'Activo' : v === 'on_hold' ? 'En Espera' : v === 'completed' ? 'Completado' : v === 'closed' ? 'Cerrado' : 'Cancelado'}
         </Tag>
       ),
     },
@@ -60,13 +70,7 @@ export default function MyRequests() {
     },
     {
       title: 'Acción', key: 'action',
-      render: (_, r) => {
-        const firstTicket = r.tickets?.[0];
-        if (firstTicket) {
-          return <Button type="link" onClick={() => navigate(`/tickets/${firstTicket.id}`)}>Ver</Button>;
-        }
-        return <Button type="link" onClick={() => navigate(`/admin/peticiones/${r.id}`)}>Ver</Button>;
-      },
+      render: (_, r) => <Button type="link" onClick={() => navigate(`/my-requests/${r.id}`)}>Ver</Button>,
     },
   ];
 
