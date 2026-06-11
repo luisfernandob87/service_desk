@@ -1,4 +1,4 @@
-const { WorkflowExecution, Workflow, Ticket, TicketComment, Service, SupportGroup, User, UserGroup } = require('../models');
+const { WorkflowExecution, Workflow, Ticket, TicketComment, Service, SupportGroup, User, UserGroup, Organization } = require('../models');
 const workflowEngine = require('../services/workflowEngine');
 
 exports.listRequests = async (req, res) => {
@@ -51,6 +51,8 @@ exports.getById = async (req, res) => {
         { model: Ticket, as: 'tickets', attributes: ['id', 'code', 'type', 'title', 'status', 'source_node_id', 'created_at', 'assigned_group_id', 'assigned_user_id', 'resolution'] },
         { model: Approval, as: 'approvals', attributes: ['id', 'code', 'status', 'stage', 'source_node_id', 'rejection_reason'] },
         { model: WorkflowExecution, as: 'parentExecution', attributes: ['id', 'request_number'] },
+        { model: WorkflowExecution, as: 'childExecutions', attributes: ['id', 'request_number', 'status', 'created_at'] },
+        { model: Organization, as: 'organization', attributes: ['id', 'slug', 'name'] },
       ],
     });
     if (!execution) return res.status(404).json({ error: 'Petición no encontrada' });
@@ -124,6 +126,15 @@ exports.reopen = async (req, res) => {
 
     if (original.status !== 'completed') {
       return res.status(400).json({ error: 'Solo se puede reabrir una petición completada' });
+    }
+
+    if (original.parent_execution_id) {
+      return res.status(400).json({ error: 'Esta petición ya es una reapertura, no se puede reabrir de nuevo' });
+    }
+
+    const childCount = await WorkflowExecution.count({ where: { parent_execution_id: original.id } });
+    if (childCount > 0) {
+      return res.status(400).json({ error: 'Esta petición ya fue reabierta anteriormente' });
     }
 
     const context = original.context || {};

@@ -193,7 +193,7 @@ exports.updateStatus = async (req, res) => {
     if (!ticket) return res.status(404).json({ error: 'Ticket no encontrado' });
 
     const { status, resolution } = req.body;
-    const valid = ['new', 'in_progress', 'on_hold', 'resolved', 'closed', 'cancelled', 'reopened'];
+    const valid = ['new', 'in_progress', 'on_hold', 'resolved', 'closed', 'cancelled'];
     if (!valid.includes(status)) {
       return res.status(400).json({ error: 'Estado inválido' });
     }
@@ -244,7 +244,7 @@ exports.updateStatus = async (req, res) => {
       on_hold: 'en espera',
       in_progress: 'en progreso',
       new: 'nuevo',
-      reopened: 'reabierto',
+
     };
 
     await notificationService.createNotification({
@@ -276,7 +276,7 @@ exports.update = async (req, res) => {
 
     const { status, resolution, assigned_group_id, assigned_user_id, priority } = req.body;
 
-    const validStatuses = ['new', 'in_progress', 'on_hold', 'resolved', 'closed', 'cancelled', 'reopened'];
+    const validStatuses = ['new', 'in_progress', 'on_hold', 'resolved', 'closed', 'cancelled'];
     const validPriorities = ['low', 'medium', 'high', 'critical'];
 
     if (status && validStatuses.includes(status)) {
@@ -344,7 +344,7 @@ exports.update = async (req, res) => {
     if (status && status !== ticket._previousDataValues.status) {
       const statusLabels = {
         resolved: 'resuelto', closed: 'cerrado', cancelled: 'cancelado',
-        on_hold: 'en espera', in_progress: 'en progreso', new: 'nuevo', reopened: 'reabierto',
+        on_hold: 'en espera', in_progress: 'en progreso', new: 'nuevo',
       };
       await notificationService.createNotification({
         user_id: ticket.requester_id,

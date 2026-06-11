@@ -87,14 +87,37 @@ export default function UserRequestDetail() {
           </Tag>
         </Space>
 
-        {exec.status === 'completed' && (
+        {(exec.status === 'completed' || exec.status === 'closed') && (
           <div style={{ marginTop: 16, display: 'flex', gap: 12 }}>
-            <Button type="primary" icon={<ReloadOutlined />} loading={actionLoading} onClick={handleReopen}>
-              Reabrir caso
+            <Button icon={<ReloadOutlined />} loading={actionLoading}
+              onClick={() => {
+                const orgSlug = exec.organization?.slug;
+                const serviceId = exec.service?.id;
+                if (orgSlug && serviceId) {
+                  navigate(`/org/${orgSlug}/services/${serviceId}`, {
+                    state: {
+                      prefill: {
+                        title: exec.context?.title || '',
+                        description: exec.context?.description || '',
+                        priority: exec.context?.priority || 'medium',
+                        form_data: exec.context?.form_data || {},
+                      },
+                    },
+                  });
+                }
+              }}>
+              Pedir de nuevo
             </Button>
-            <Button icon={<CloseCircleOutlined />} loading={actionLoading} onClick={handleClose}>
-              Cerrar caso
-            </Button>
+            {!exec.childExecutions?.length && (
+              <>
+                <Button type="primary" icon={<ReloadOutlined />} loading={actionLoading} onClick={handleReopen}>
+                  Reabrir caso
+                </Button>
+                <Button icon={<CloseCircleOutlined />} loading={actionLoading} onClick={handleClose}>
+                  Cerrar caso
+                </Button>
+              </>
+            )}
           </div>
         )}
 
@@ -106,6 +129,20 @@ export default function UserRequestDetail() {
               <Link to={`/my-requests/${exec.parentExecution.id}`}>
                 Petición #{exec.parentExecution.request_number || exec.parentExecution.id}
               </Link>
+            </Descriptions.Item>
+          )}
+          {exec.childExecutions?.length > 0 && (
+            <Descriptions.Item label="Reabierta como" span={2}>
+              {(exec.childExecutions || []).map(child => (
+                <div key={child.id}>
+                  <Link to={`/my-requests/${child.id}`}>
+                    Petición #{child.request_number || child.id}
+                  </Link>
+                  <Tag color="blue" style={{ marginLeft: 8 }}>
+                    {child.status === 'active' ? 'Activo' : child.status === 'completed' ? 'Completado' : child.status}
+                  </Tag>
+                </div>
+              ))}
             </Descriptions.Item>
           )}
           <Descriptions.Item label="Iniciado">{formatDate(exec.createdAt)}</Descriptions.Item>

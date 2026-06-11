@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Card, Typography, Form, Input, Select, Radio, DatePicker, Button, Spin, message, Alert, Checkbox, Switch, Upload } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';
 import api from '../../api/client';
@@ -16,6 +16,7 @@ export default function ServiceRequest() {
   const { slug, id } = useParams();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [form] = Form.useForm();
   const [service, setService] = useState(null);
   const [org, setOrg] = useState(null);
@@ -34,6 +35,22 @@ export default function ServiceRequest() {
       finally { setLoading(false) }
     })();
   }, [slug, id]);
+
+  useEffect(() => {
+    const prefill = location.state?.prefill;
+    if (!prefill || !service) return;
+    const values = {};
+    for (const field of (service.form_config || [])) {
+      if (field.type === 'file') continue;
+      if (field.system) {
+        values[field.name] = prefill[field.name] || '';
+      } else {
+        const val = prefill.form_data?.[field.name];
+        if (val !== undefined) values[['form_data', field.name]] = val;
+      }
+    }
+    form.setFieldsValue(values);
+  }, [service, location.state]);
 
   const handleSubmit = async (values) => {
     if (!user) { navigate(`/login?redirect=/org/${slug}/services/${id}`); return; }

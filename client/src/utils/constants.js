@@ -33,8 +33,7 @@ export const STATUS_TRANSITIONS = {
   new: ['in_progress'],
   in_progress: ['on_hold', 'resolved', 'cancelled'],
   on_hold: ['in_progress'],
-  resolved: ['reopened', 'closed'],
-  reopened: ['in_progress'],
+  resolved: [],
   closed: [],
   cancelled: [],
 };

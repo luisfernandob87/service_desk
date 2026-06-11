@@ -76,6 +76,20 @@ export default function RequestDetail() {
               </Link>
             </Descriptions.Item>
           )}
+          {exec.childExecutions?.length > 0 && (
+            <Descriptions.Item label="Reabierta como" span={2}>
+              {(exec.childExecutions || []).map(child => (
+                <div key={child.id}>
+                  <Link to={`/admin/peticiones/${child.id}`}>
+                    <LinkOutlined /> Petición #{child.request_number || child.id}
+                  </Link>
+                  <Tag color="blue" style={{ marginLeft: 8 }}>
+                    {child.status === 'active' ? 'Activo' : child.status === 'completed' ? 'Completado' : child.status}
+                  </Tag>
+                </div>
+              ))}
+            </Descriptions.Item>
+          )}
           <Descriptions.Item label="Iniciado">{formatDate(exec.createdAt)}</Descriptions.Item>
           <Descriptions.Item label="Completado">{exec.completed_at ? formatDate(exec.completed_at) : '-'}</Descriptions.Item>
         </Descriptions>
