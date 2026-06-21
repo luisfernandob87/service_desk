@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Table, Button, Modal, Form, Input, Select, Space, Popconfirm, message, Tag, Typography } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import { Table, Button, Modal, Form, Input, Select, Space, message, Tag, Typography } from 'antd';
+import { PlusOutlined, EditOutlined, CheckOutlined, CloseOutlined } from '@ant-design/icons';
 import api from '../../api/client';
 
 export default function Groups() {
@@ -9,6 +9,7 @@ export default function Groups() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [orgs, setOrgs] = useState([]);
+  const [filterActive, setFilterActive] = useState(true);
   const [form] = Form.useForm();
 
   const loadData = async () => {
@@ -44,12 +45,12 @@ export default function Groups() {
     }
   };
 
-  const handleDelete = async (id) => {
+  const handleToggleActive = async (record) => {
     try {
-      await api.delete(`/support-groups/${id}`);
-      message.success('Grupo eliminado');
+      await api.put(`/support-groups/${record.id}`, { is_active: !record.is_active });
+      message.success(record.is_active ? 'Grupo deshabilitado' : 'Grupo habilitado');
       loadData();
-    } catch { message.error('Error al eliminar') }
+    } catch { message.error('Error al cambiar estado') }
   };
 
   const openEdit = (record) => {
@@ -67,13 +68,11 @@ export default function Groups() {
     setModalOpen(true);
   };
 
+  const filteredData = data.filter(u => filterActive === null || u.is_active === filterActive);
+
   const columns = [
     { title: 'Nombre', dataIndex: 'name', key: 'name' },
     { title: 'Descripción', dataIndex: 'description', key: 'description', ellipsis: true },
-    {
-      title: 'Organizaciones', key: 'orgs',
-      render: (_, r) => (r.organizations || []).map(o => <Tag key={o.id}>{o.name}</Tag>),
-    },
     {
       title: 'Miembros', key: 'members',
       render: (_, r) => r.members?.length || 0,
@@ -87,9 +86,14 @@ export default function Groups() {
       render: (_, r) => (
         <Space>
           <Button icon={<EditOutlined />} size="small" onClick={() => openEdit(r)} />
-          <Popconfirm title="¿Eliminar?" onConfirm={() => handleDelete(r.id)}>
-            <Button icon={<DeleteOutlined />} size="small" danger />
-          </Popconfirm>
+          <Button
+            icon={r.is_active ? <CloseOutlined /> : <CheckOutlined />}
+            size="small"
+            danger={r.is_active}
+            onClick={() => handleToggleActive(r)}
+          >
+            {r.is_active ? 'Deshabilitar' : 'Habilitar'}
+          </Button>
         </Space>
       ),
     },
@@ -101,7 +105,14 @@ export default function Groups() {
       <Button type="primary" icon={<PlusOutlined />} onClick={openCreate} style={{ marginBottom: 16 }}>
         Nuevo Grupo
       </Button>
-      <Table dataSource={data} columns={columns} rowKey="id" loading={loading} />
+      <Space style={{ marginBottom: 16 }}>
+        <Select value={filterActive} onChange={setFilterActive} style={{ width: 140 }}
+          options={[
+            { label: 'Activos', value: true },
+            { label: 'Inactivos', value: false },
+          ]} />
+      </Space>
+      <Table dataSource={filteredData} columns={columns} rowKey="id" loading={loading} />
 
       <Modal
         title={editing ? 'Editar Grupo' : 'Nuevo Grupo'}

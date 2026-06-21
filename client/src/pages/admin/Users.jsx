@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Table, Button, Modal, Form, Input, Select, Space, Popconfirm, message, Tag, Typography } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import { Table, Button, Modal, Form, Input, Select, Space, message, Tag, Typography } from 'antd';
+import { PlusOutlined, EditOutlined, CloseOutlined, CheckOutlined } from '@ant-design/icons';
 import api from '../../api/client';
 import { ROLES, ROLE_LABELS } from '../../utils/constants';
 
@@ -11,6 +11,9 @@ export default function Users() {
   const [editing, setEditing] = useState(null);
   const [orgs, setOrgs] = useState([]);
   const [groups, setGroups] = useState([]);
+  const [selectedRole, setSelectedRole] = useState(null);
+  const [filterRole, setFilterRole] = useState('end_user');
+  const [filterActive, setFilterActive] = useState(true);
   const [form] = Form.useForm();
 
   const loadData = async () => {
@@ -49,25 +52,40 @@ export default function Users() {
     }
   };
 
-  const handleDelete = async (id) => {
+  const handleToggleActive = async (record) => {
     try {
-      await api.delete(`/users/${id}`);
-      message.success('Usuario eliminado');
+      await api.put(`/users/${record.id}`, { is_active: !record.is_active });
+      message.success(record.is_active ? 'Usuario deshabilitado' : 'Usuario habilitado');
       loadData();
-    } catch { message.error('Error al eliminar') }
+    } catch { message.error('Error al cambiar estado') }
   };
 
   const openEdit = (record) => {
     setEditing(record);
+    setSelectedRole(record.role);
     form.setFieldsValue({ ...record, groups: record.groups?.map(g => g.id) });
     setModalOpen(true);
   };
 
   const openCreate = () => {
     setEditing(null);
+    setSelectedRole(null);
     form.resetFields();
     setModalOpen(true);
   };
+
+  const handleRoleChange = (value) => {
+    setSelectedRole(value);
+    if (value === 'end_user') {
+      form.setFieldsValue({ groups: [] });
+    }
+  };
+
+  const filteredData = data.filter(u => {
+    if (filterRole && u.role !== filterRole) return false;
+    if (filterActive !== null && u.is_active !== filterActive) return false;
+    return true;
+  });
 
   const roleColors = { admin: 'red', manager: 'blue', resolver: 'green', end_user: 'default' };
 
@@ -87,9 +105,14 @@ export default function Users() {
       render: (_, r) => (
         <Space>
           <Button icon={<EditOutlined />} size="small" onClick={() => openEdit(r)} />
-          <Popconfirm title="¿Eliminar?" onConfirm={() => handleDelete(r.id)}>
-            <Button icon={<DeleteOutlined />} size="small" danger />
-          </Popconfirm>
+          <Button
+            icon={r.is_active ? <CloseOutlined /> : <CheckOutlined />}
+            size="small"
+            danger={r.is_active}
+            onClick={() => handleToggleActive(r)}
+          >
+            {r.is_active ? 'Deshabilitar' : 'Habilitar'}
+          </Button>
         </Space>
       ),
     },
@@ -101,7 +124,24 @@ export default function Users() {
       <Button type="primary" icon={<PlusOutlined />} onClick={openCreate} style={{ marginBottom: 16 }}>
         Nuevo Usuario
       </Button>
-      <Table dataSource={data} columns={columns} rowKey="id" loading={loading} />
+      <Space style={{ marginBottom: 16 }}>
+        <Select
+          value={filterRole}
+          onChange={setFilterRole}
+          style={{ width: 180 }}
+          options={[{ label: 'Todos los roles', value: '' }, ...Object.entries(ROLE_LABELS).map(([k, v]) => ({ label: v, value: k }))]}
+        />
+        <Select
+          value={filterActive}
+          onChange={setFilterActive}
+          style={{ width: 140 }}
+          options={[
+            { label: 'Activos', value: true },
+            { label: 'Inactivos', value: false },
+          ]}
+        />
+      </Space>
+      <Table dataSource={filteredData} columns={columns} rowKey="id" loading={loading} />
 
       <Modal
         title={editing ? 'Editar Usuario' : 'Nuevo Usuario'}
@@ -125,14 +165,16 @@ export default function Users() {
             <Input.Password />
           </Form.Item>
           <Form.Item name="role" label="Rol" rules={[{ required: true }]}>
-            <Select options={Object.entries(ROLE_LABELS).map(([k, v]) => ({ label: v, value: k }))} />
+            <Select options={Object.entries(ROLE_LABELS).map(([k, v]) => ({ label: v, value: k }))} onChange={handleRoleChange} />
           </Form.Item>
           <Form.Item name="phone" label="Teléfono">
             <Input />
           </Form.Item>
-          <Form.Item name="groups" label="Grupos de Soporte">
-            <Select mode="multiple" options={groups.map(g => ({ label: g.name, value: g.id }))} />
-          </Form.Item>
+          {selectedRole && selectedRole !== 'end_user' && (
+            <Form.Item name="groups" label="Grupos de Soporte">
+              <Select mode="multiple" options={groups.map(g => ({ label: g.name, value: g.id }))} />
+            </Form.Item>
+          )}
         </Form>
       </Modal>
     </div>

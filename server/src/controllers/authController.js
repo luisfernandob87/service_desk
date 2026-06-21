@@ -12,8 +12,11 @@ exports.login = async (req, res) => {
       where: { email },
       include: ['organization'],
     });
-    if (!user || !user.is_active) {
+    if (!user) {
       return res.status(401).json({ error: 'Credenciales inválidas' });
+    }
+    if (!user.is_active) {
+      return res.status(401).json({ error: 'Su usuario se encuentra deshabilitado, por favor comuníquese con el administrador' });
     }
 
     const valid = await user.validatePassword(password);

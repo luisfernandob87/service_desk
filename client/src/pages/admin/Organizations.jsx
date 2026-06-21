@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Table, Button, Modal, Form, Input, Space, Popconfirm, message, Tag, Typography } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import { Table, Button, Modal, Form, Input, Select, Space, message, Tag, Typography } from 'antd';
+import { PlusOutlined, EditOutlined, CloseOutlined, CheckOutlined } from '@ant-design/icons';
 import api from '../../api/client';
 
 export default function Organizations() {
@@ -8,6 +8,7 @@ export default function Organizations() {
   const [loading, setLoading] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
+  const [filterActive, setFilterActive] = useState(true);
   const [form] = Form.useForm();
 
   const loadData = async () => {
@@ -39,12 +40,12 @@ export default function Organizations() {
     }
   };
 
-  const handleDelete = async (id) => {
+  const handleToggleActive = async (record) => {
     try {
-      await api.delete(`/organizations/${id}`);
-      message.success('Organización eliminada');
+      await api.put(`/organizations/${record.id}`, { is_active: !record.is_active });
+      message.success(record.is_active ? 'Organización deshabilitada' : 'Organización habilitada');
       loadData();
-    } catch { message.error('Error al eliminar') }
+    } catch { message.error('Error al cambiar estado') }
   };
 
   const openEdit = (record) => {
@@ -59,6 +60,8 @@ export default function Organizations() {
     setModalOpen(true);
   };
 
+  const filteredData = data.filter(u => filterActive === null || u.is_active === filterActive);
+
   const columns = [
     { title: 'Nombre', dataIndex: 'name', key: 'name' },
     { title: 'Slug', dataIndex: 'slug', key: 'slug' },
@@ -71,9 +74,14 @@ export default function Organizations() {
       render: (_, r) => (
         <Space>
           <Button icon={<EditOutlined />} size="small" onClick={() => openEdit(r)} />
-          <Popconfirm title="¿Eliminar?" onConfirm={() => handleDelete(r.id)}>
-            <Button icon={<DeleteOutlined />} size="small" danger />
-          </Popconfirm>
+          <Button
+            icon={r.is_active ? <CloseOutlined /> : <CheckOutlined />}
+            size="small"
+            danger={r.is_active}
+            onClick={() => handleToggleActive(r)}
+          >
+            {r.is_active ? 'Deshabilitar' : 'Habilitar'}
+          </Button>
         </Space>
       ),
     },
@@ -85,7 +93,14 @@ export default function Organizations() {
       <Button type="primary" icon={<PlusOutlined />} onClick={openCreate} style={{ marginBottom: 16 }}>
         Nueva Organización
       </Button>
-      <Table dataSource={data} columns={columns} rowKey="id" loading={loading} />
+      <Space style={{ marginBottom: 16 }}>
+        <Select value={filterActive} onChange={setFilterActive} style={{ width: 140 }}
+          options={[
+            { label: 'Activos', value: true },
+            { label: 'Inactivos', value: false },
+          ]} />
+      </Space>
+      <Table dataSource={filteredData} columns={columns} rowKey="id" loading={loading} />
 
       <Modal
         title={editing ? 'Editar Organización' : 'Nueva Organización'}

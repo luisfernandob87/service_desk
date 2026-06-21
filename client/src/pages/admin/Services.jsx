@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Table, Button, Modal, Form, Input, Select, Switch, Space, Popconfirm, message, Tag, Typography, Divider } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined, ApartmentOutlined } from '@ant-design/icons';
+import { Table, Button, Modal, Form, Input, Select, Switch, Space, message, Tag, Typography, Divider } from 'antd';
+import { PlusOutlined, EditOutlined, EyeOutlined } from '@ant-design/icons';
 import api from '../../api/client';
 import FormBuilder from '../../components/FormBuilder';
 
@@ -13,6 +13,7 @@ export default function AdminServices() {
   const [cats, setCats] = useState([]);
   const [workflows, setWorkflows] = useState([]);
   const [groups, setGroups] = useState([]);
+  const [filterPublished, setFilterPublished] = useState(true);
   const [form] = Form.useForm();
 
   const loadData = async () => {
@@ -54,14 +55,6 @@ export default function AdminServices() {
     }
   };
 
-  const handleDelete = async (id) => {
-    try {
-      await api.delete(`/services/${id}`);
-      message.success('Servicio eliminado');
-      loadData();
-    } catch { message.error('Error al eliminar') }
-  };
-
   const openEdit = (record) => {
     setEditing(record);
     form.setFieldsValue({
@@ -77,14 +70,13 @@ export default function AdminServices() {
     setModalOpen(true);
   };
 
+  const filteredData = filterPublished ? data.filter(s => s.is_published) : data;
+
   const columns = [
     { title: 'Nombre', dataIndex: 'name', key: 'name' },
     { title: 'Descripción Corta', dataIndex: 'short_description', key: 'short_description', ellipsis: true },
     {
       title: 'Categoría', key: 'category', render: (_, r) => r.category?.name || '-',
-    },
-    {
-      title: 'Flujo', key: 'workflow', render: (_, r) => r.workflow ? <Tag icon={<ApartmentOutlined />}>{r.workflow.name}</Tag> : '-',
     },
     {
       title: 'Grupo Owner', key: 'defaultGroup',
@@ -105,9 +97,6 @@ export default function AdminServices() {
           <Button icon={<EyeOutlined />} size="small"
             href={`/org/${r.organizations?.[0]?.slug || 'principal'}/services/${r.id}`} target="_blank" />
           <Button icon={<EditOutlined />} size="small" onClick={() => openEdit(r)} />
-          <Popconfirm title="¿Eliminar?" onConfirm={() => handleDelete(r.id)}>
-            <Button icon={<DeleteOutlined />} size="small" danger />
-          </Popconfirm>
         </Space>
       ),
     },
@@ -119,7 +108,14 @@ export default function AdminServices() {
       <Button type="primary" icon={<PlusOutlined />} onClick={openCreate} style={{ marginBottom: 16 }}>
         Nuevo Servicio
       </Button>
-      <Table dataSource={data} columns={columns} rowKey="id" loading={loading} />
+      <Space style={{ marginBottom: 16 }}>
+        <Select value={filterPublished} onChange={setFilterPublished} style={{ width: 160 }}
+          options={[
+            { label: 'Publicados', value: true },
+            { label: 'Todos', value: false },
+          ]} />
+      </Space>
+      <Table dataSource={filteredData} columns={columns} rowKey="id" loading={loading} />
 
       <Modal
         title={editing ? 'Editar Servicio' : 'Nuevo Servicio'}

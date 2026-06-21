@@ -3,12 +3,23 @@ import { Table, Button, Modal, Form, Input, TreeSelect, Space, Popconfirm, messa
 import { PlusOutlined, EditOutlined, DeleteOutlined, FolderOutlined, FileOutlined } from '@ant-design/icons';
 import api from '../../api/client';
 
+function getDepthFromFlat(flat, id) {
+  let depth = 0;
+  let current = flat.find(c => c.id === id);
+  while (current?.parent_id) {
+    depth++;
+    current = flat.find(c => c.id === current.parent_id);
+  }
+  return depth;
+}
+
 function buildTree(flat) {
   const map = {};
   const roots = [];
-  flat.forEach(item => { map[item.id] = { ...item, key: item.id, children: [] }; });
+  flat.forEach(item => { map[item.id] = { ...item, key: item.id }; });
   flat.forEach(item => {
     if (item.parent_id && map[item.parent_id]) {
+      if (!map[item.parent_id].children) map[item.parent_id].children = [];
       map[item.parent_id].children.push(map[item.id]);
     } else if (!item.parent_id) {
       roots.push(map[item.id]);
@@ -17,13 +28,13 @@ function buildTree(flat) {
   return roots;
 }
 
-function flattenForSelect(items, excludeIds) {
+function flattenForSelect(items, excludeIds, maxDepth = 2, depth = 0) {
   const result = [];
   for (const item of items) {
     if (!excludeIds.has(item.id)) {
       const entry = { value: item.id, title: item.name };
-      if (item.children?.length) {
-        entry.children = flattenForSelect(item.children, excludeIds);
+      if (item.children?.length && depth < maxDepth - 1) {
+        entry.children = flattenForSelect(item.children, excludeIds, maxDepth, depth + 1);
       }
       result.push(entry);
     }
@@ -95,7 +106,7 @@ export default function Categories() {
   const openEdit = (record) => {
     setEditing(record);
     setParentPreset(null);
-    form.setFieldsValue({ name: record.name, description: record.description, parent_id: record.parent_id || undefined });
+    form.setFieldsValue({ name: record.name, parent_id: record.parent_id || undefined });
     setModalOpen(true);
   };
 
@@ -129,7 +140,6 @@ export default function Categories() {
         </Space>
       ),
     },
-    { title: 'Descripción', dataIndex: 'description', key: 'description', ellipsis: true },
     {
       title: 'Activo', dataIndex: 'is_active', key: 'is_active', width: 80,
       render: (v) => v ? <Tag color="green">Sí</Tag> : <Tag color="red">No</Tag>,
@@ -138,7 +148,7 @@ export default function Categories() {
       title: 'Acciones', key: 'actions', width: 200,
       render: (_, r) => (
         <Space>
-          <Button icon={<PlusOutlined />} size="small" onClick={() => openCreate(r.id)} title="Agregar subcategoría" />
+          {getDepthFromFlat(data, r.id) < 2 && <Button icon={<PlusOutlined />} size="small" onClick={() => openCreate(r.id)} title="Agregar subcategoría" />}
           <Button icon={<EditOutlined />} size="small" onClick={() => openEdit(r)} />
           <Popconfirm title="¿Eliminar?" onConfirm={() => handleDelete(r.id)}>
             <Button icon={<DeleteOutlined />} size="small" danger />
@@ -172,9 +182,6 @@ export default function Categories() {
         <Form form={form} layout="vertical" onFinish={handleSave}>
           <Form.Item name="name" label="Nombre" rules={[{ required: true }]}>
             <Input />
-          </Form.Item>
-          <Form.Item name="description" label="Descripción">
-            <Input.TextArea rows={3} />
           </Form.Item>
           <Form.Item name="parent_id" label="Categoría Padre">
             <TreeSelect
