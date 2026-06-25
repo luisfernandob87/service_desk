@@ -21,6 +21,10 @@ const Category = sequelize.define('Category', {
     type: DataTypes.BOOLEAN,
     defaultValue: true,
   },
+  type: {
+    type: DataTypes.STRING(20),
+    defaultValue: 'service',
+  },
 }, {
   tableName: 'categories',
 });

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Table, Button, Modal, Form, Input, TreeSelect, Space, Popconfirm, message, Tag, Typography } from 'antd';
+import { Table, Button, Modal, Form, Input, Select, TreeSelect, Space, Popconfirm, message, Tag, Typography, Checkbox } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, FolderOutlined, FileOutlined } from '@ant-design/icons';
 import api from '../../api/client';
 
@@ -54,12 +54,17 @@ function findDescendantIds(items) {
   return ids;
 }
 
+const TYPE_LABELS = { service: 'Servicio', solution: 'Solución', both: 'Ambos' };
+const TYPE_COLORS = { service: 'blue', solution: 'green', both: 'purple' };
+
 export default function Categories() {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [parentPreset, setParentPreset] = useState(null);
+  const [filterType, setFilterType] = useState(null);
+  const [categoryType, setCategoryType] = useState('service');
   const [form] = Form.useForm();
 
   const loadData = async () => {
@@ -75,8 +80,24 @@ export default function Categories() {
 
   const treeData = useMemo(() => buildTree(data), [data]);
 
+  const visibleIds = useMemo(() => {
+    if (!filterType) return null;
+    const matching = new Set(data.filter(c => c.type === filterType || c.type === 'both').map(c => c.id));
+    data.forEach(c => {
+      if (matching.has(c.id)) {
+        let pid = c.parent_id;
+        while (pid) { matching.add(pid); pid = data.find(x => x.id === pid)?.parent_id; }
+      }
+    });
+    return matching;
+  }, [data, filterType]);
+
+  const filterNode = (items) => items?.filter(n => visibleIds.has(n.id)).map(n => ({ ...n, children: filterNode(n.children) }));
+  const treeSource = visibleIds ? filterNode(treeData) : treeData;
+
   const handleSave = async (values) => {
     try {
+      values.type = categoryType;
       if (values.parent_id === undefined) values.parent_id = null;
       if (editing) {
         await api.put(`/categories/${editing.id}`, values);
@@ -106,6 +127,7 @@ export default function Categories() {
   const openEdit = (record) => {
     setEditing(record);
     setParentPreset(null);
+    setCategoryType(record.type || 'service');
     form.setFieldsValue({ name: record.name, parent_id: record.parent_id || undefined });
     setModalOpen(true);
   };
@@ -114,7 +136,8 @@ export default function Categories() {
     setEditing(null);
     setParentPreset(parentId || null);
     form.resetFields();
-    if (parentId) form.setFieldsValue({ parent_id: parentId });
+    setCategoryType('service');
+    form.setFieldsValue({ parent_id: parentId || undefined });
     setModalOpen(true);
   };
 
@@ -125,8 +148,7 @@ export default function Categories() {
   }, [editing, data]);
 
   const selectTreeData = useMemo(() => {
-    const tree = flattenForSelect(treeData, excludeIds);
-    return [{ value: undefined, title: 'Ninguna (categoría raíz)', selectable: true }, ...tree];
+    return flattenForSelect(treeData, excludeIds);
   }, [treeData, excludeIds]);
 
   const columns = [
@@ -139,6 +161,10 @@ export default function Categories() {
           {!r.is_active && <Tag color="default" style={{ fontSize: 10 }}>Inactiva</Tag>}
         </Space>
       ),
+    },
+    {
+      title: 'Tipo', dataIndex: 'type', key: 'type', width: 110,
+      render: (v) => <Tag color={TYPE_COLORS[v] || 'default'}>{TYPE_LABELS[v] || v}</Tag>,
     },
     {
       title: 'Activo', dataIndex: 'is_active', key: 'is_active', width: 80,
@@ -164,8 +190,12 @@ export default function Categories() {
       <Button type="primary" icon={<PlusOutlined />} onClick={() => openCreate()} style={{ marginBottom: 16 }}>
         Nueva Categoría
       </Button>
+      <Space style={{ marginBottom: 16 }}>
+        <Select value={filterType} onChange={setFilterType} style={{ width: 160 }} allowClear placeholder="Todos los tipos"
+          options={Object.entries(TYPE_LABELS).map(([k, v]) => ({ label: v, value: k }))} />
+      </Space>
       <Table
-        dataSource={treeData}
+        dataSource={treeSource}
         columns={columns}
         rowKey="id"
         loading={loading}
@@ -183,10 +213,34 @@ export default function Categories() {
           <Form.Item name="name" label="Nombre" rules={[{ required: true }]}>
             <Input />
           </Form.Item>
+          <Form.Item label="Tipo" required>
+            <Space>
+              <Checkbox
+                checked={['service', 'both'].includes(categoryType)}
+                onChange={(e) => {
+                  const isSvc = e.target.checked;
+                  const isSol = ['solution', 'both'].includes(categoryType);
+                  setCategoryType(isSvc && isSol ? 'both' : isSvc ? 'service' : isSol ? 'solution' : 'service');
+                }}
+              >
+                Servicio
+              </Checkbox>
+              <Checkbox
+                checked={['solution', 'both'].includes(categoryType)}
+                onChange={(e) => {
+                  const isSol = e.target.checked;
+                  const isSvc = ['service', 'both'].includes(categoryType);
+                  setCategoryType(isSvc && isSol ? 'both' : isSvc ? 'service' : isSol ? 'solution' : 'service');
+                }}
+              >
+                Solución
+              </Checkbox>
+            </Space>
+          </Form.Item>
           <Form.Item name="parent_id" label="Categoría Padre">
             <TreeSelect
               treeData={selectTreeData}
-              placeholder="Ninguna (categoría raíz)"
+              placeholder="Seleccionar categoría padre"
               allowClear
               treeDefaultExpandAll
             />

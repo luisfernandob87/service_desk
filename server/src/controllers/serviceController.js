@@ -1,4 +1,4 @@
-const { Service, Category, Organization, SupportGroup, Workflow } = require('../models');
+const { Service, Category, Organization, SupportGroup, Workflow, FormTemplate } = require('../models');
 
 exports.list = async (req, res) => {
   try {
@@ -12,6 +12,7 @@ exports.list = async (req, res) => {
         { model: Organization, as: 'organizations', attributes: ['id', 'name', 'slug'] },
         { model: SupportGroup, as: 'defaultGroup', attributes: ['id', 'name'] },
         { model: Workflow, as: 'workflow', attributes: ['id', 'name'] },
+        { model: FormTemplate, as: 'formTemplate', attributes: ['id', 'name'] },
       ],
       order: [['name', 'ASC']],
     });
@@ -34,10 +35,19 @@ exports.getPublished = async (req, res) => {
           attributes: ['id', 'name', 'slug'],
           through: { attributes: [] },
         },
+        { model: FormTemplate, as: 'formTemplate' },
       ],
       order: [['name', 'ASC']],
     });
-    res.json(services);
+
+    const result = services.map(s => {
+      const json = s.toJSON();
+      if (json.formTemplate) {
+        json.form_config = json.formTemplate.config;
+      }
+      return json;
+    });
+    res.json(result);
   } catch (error) {
     console.error('Published services error:', error);
     res.status(500).json({ error: 'Error al listar servicios publicados' });
@@ -51,10 +61,17 @@ exports.getById = async (req, res) => {
         { model: Category, as: 'category' },
         { model: Organization, as: 'organizations', attributes: ['id', 'name', 'slug'] },
         { model: Workflow, as: 'workflow', attributes: ['id', 'name'] },
+        { model: FormTemplate, as: 'formTemplate' },
       ],
     });
     if (!service) return res.status(404).json({ error: 'Servicio no encontrado' });
-    res.json(service);
+
+    const result = service.toJSON();
+    if (result.formTemplate) {
+      result.form_config = result.formTemplate.config;
+    }
+
+    res.json(result);
   } catch (error) {
     res.status(500).json({ error: 'Error al obtener servicio' });
   }
@@ -62,7 +79,7 @@ exports.getById = async (req, res) => {
 
 exports.create = async (req, res) => {
   try {
-    const { organization_ids, category_id, name, description, short_description, icon, default_assigned_group_id, is_published, form_config, workflow_config, workflow_id } = req.body;
+    const { organization_ids, category_id, name, description, short_description, icon, default_assigned_group_id, is_published, form_config, workflow_config, workflow_id, form_template_id } = req.body;
     if (!organization_ids || organization_ids.length === 0) {
       return res.status(400).json({ error: 'Al menos una organización es requerida' });
     }
@@ -77,6 +94,7 @@ exports.create = async (req, res) => {
       form_config: form_config || [],
       workflow_config: workflow_config || {},
       workflow_id: workflow_id || null,
+      form_template_id: form_template_id || null,
     });
 
     const orgs = await Organization.findAll({ where: { id: organization_ids } });
@@ -98,7 +116,7 @@ exports.update = async (req, res) => {
     const service = await Service.findByPk(req.params.id);
     if (!service) return res.status(404).json({ error: 'Servicio no encontrado' });
 
-    const { organization_ids, category_id, name, description, short_description, icon, default_assigned_group_id, is_published, form_config, workflow_config, workflow_id } = req.body;
+    const { organization_ids, category_id, name, description, short_description, icon, default_assigned_group_id, is_published, form_config, workflow_config, workflow_id, form_template_id } = req.body;
     if (name) service.name = name;
     if (category_id !== undefined) service.category_id = category_id;
     if (description !== undefined) service.description = description;
@@ -109,6 +127,7 @@ exports.update = async (req, res) => {
     if (form_config !== undefined) service.form_config = form_config;
     if (workflow_config !== undefined) service.workflow_config = workflow_config;
     if (workflow_id !== undefined) service.workflow_id = workflow_id;
+    if (form_template_id !== undefined) service.form_template_id = form_template_id;
     await service.save();
 
     if (organization_ids !== undefined) {

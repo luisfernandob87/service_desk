@@ -15,6 +15,7 @@ import Users from './pages/admin/Users';
 import Groups from './pages/admin/Groups';
 import Categories from './pages/admin/Categories';
 import AdminServices from './pages/admin/Services';
+import ServiceForm from './pages/admin/ServiceForm';
 import RequestsPage from './pages/admin/RequestsPage';
 import RequestDetail from './pages/admin/RequestDetail';
 import TicketTypePage from './pages/admin/TicketTypePage';
@@ -23,6 +24,9 @@ import ApprovalDetail from './pages/admin/ApprovalDetail';
 import Slas from './pages/admin/Slas';
 import BusinessHours from './pages/admin/BusinessHours';
 import Workflows from './pages/admin/Workflows';
+import WorkflowDesigner from './pages/admin/WorkflowDesigner';
+import FormTemplates from './pages/admin/FormTemplates';
+import FormTemplateDesigner from './pages/admin/FormTemplateDesigner';
 import LandingEditor from './pages/admin/LandingEditor';
 import { BugOutlined, ToolOutlined, SwapOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 
@@ -73,6 +77,8 @@ function AppRoutes() {
         <Route path="groups" element={<Groups />} />
         <Route path="categories" element={<Categories />} />
         <Route path="services" element={<AdminServices />} />
+        <Route path="services/new" element={<ServiceForm />} />
+        <Route path="services/:id/edit" element={<ServiceForm />} />
         <Route path="peticiones" element={<RequestsPage />} />
         <Route path="peticiones/:id" element={<RequestDetail />} />
         <Route path="incidentes" element={<TicketTypePage type="incident" title="Incidentes" icon={<BugOutlined style={{ color: '#ff4d4f' }} />} />} />
@@ -84,6 +90,9 @@ function AppRoutes() {
         <Route path="sla" element={<Slas />} />
         <Route path="business-hours" element={<BusinessHours />} />
         <Route path="workflows" element={<Workflows />} />
+        <Route path="workflows/:id/design" element={<WorkflowDesigner />} />
+        <Route path="form-templates" element={<FormTemplates />} />
+        <Route path="form-templates/:id/design" element={<FormTemplateDesigner />} />
         <Route path="landing" element={<LandingEditor />} />
       </Route>
 

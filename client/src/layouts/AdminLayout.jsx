@@ -21,6 +21,7 @@ import {
   SwapOutlined,
   ExclamationCircleOutlined,
   SendOutlined,
+  FormOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '../contexts/AuthContext';
 import { ROLE_LABELS } from '../utils/constants';
@@ -49,6 +50,7 @@ const allMenuItems = [
   { key: '/admin/sla', icon: <ClockCircleOutlined />, label: 'SLA' },
   { key: '/admin/business-hours', icon: <ClockCircleOutlined />, label: 'Horarios' },
   { key: '/admin/workflows', icon: <PartitionOutlined />, label: 'Workflows' },
+  { key: '/admin/form-templates', icon: <FormOutlined />, label: 'Formularios' },
   { key: '/admin/landing', icon: <LayoutOutlined />, label: 'Landing Page' },
 ];
 

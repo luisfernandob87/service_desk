@@ -499,6 +499,40 @@ async function runMigrations() {
       END $$;
     `);
 
+    await sequelize.query(`
+      DO $$ BEGIN
+        ALTER TABLE categories ADD COLUMN IF NOT EXISTS type VARCHAR(20) DEFAULT 'service';
+      EXCEPTION WHEN OTHERS THEN NULL;
+      END $$;
+    `);
+
+    await sequelize.query(`
+      ALTER TABLE categories DROP CONSTRAINT IF EXISTS categories_type_check;
+    `);
+    await sequelize.query(`
+      ALTER TABLE categories ADD CONSTRAINT categories_type_check CHECK (type IN ('service', 'solution', 'both'));
+    `);
+
+    await sequelize.query(`
+      CREATE TABLE IF NOT EXISTS form_templates (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(200) NOT NULL,
+        description TEXT,
+        config JSONB DEFAULT '[]',
+        is_active BOOLEAN DEFAULT true,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        deleted_at TIMESTAMP WITH TIME ZONE
+      );
+    `);
+
+    await sequelize.query(`
+      DO $$ BEGIN
+        ALTER TABLE services ADD COLUMN IF NOT EXISTS form_template_id INTEGER REFERENCES form_templates(id);
+      EXCEPTION WHEN OTHERS THEN NULL;
+      END $$;
+    `);
+
     console.log('Migrations completed successfully.');
   } catch (error) {
     console.error('Migration failed:', error);

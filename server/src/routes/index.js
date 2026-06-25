@@ -13,5 +13,6 @@ router.use('/approvals', require('./approvals'));
 router.use('/business-hours', require('./businessHours'));
 router.use('/workflows', require('./workflows'));
 router.use('/workflow-executions', require('./workflowExecutions'));
+router.use('/form-templates', require('./formTemplates'));
 
 module.exports = router;

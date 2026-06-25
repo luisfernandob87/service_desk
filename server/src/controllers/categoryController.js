@@ -36,7 +36,7 @@ async function getDepth(categoryId) {
 
 exports.create = async (req, res) => {
   try {
-    const { name, parent_id } = req.body;
+    const { name, parent_id, type } = req.body;
     if (!name) {
       return res.status(400).json({ error: 'name requerido' });
     }
@@ -46,7 +46,7 @@ exports.create = async (req, res) => {
         return res.status(400).json({ error: 'No se pueden crear más de 3 niveles de categorías' });
       }
     }
-    const cat = await Category.create({ name, parent_id });
+    const cat = await Category.create({ name, parent_id, type: type || 'service' });
     res.status(201).json(cat);
   } catch (error) {
     res.status(500).json({ error: 'Error al crear categoría' });
@@ -58,8 +58,9 @@ exports.update = async (req, res) => {
     const cat = await Category.findByPk(req.params.id);
     if (!cat) return res.status(404).json({ error: 'Categoría no encontrada' });
 
-    const { name, parent_id, is_active } = req.body;
+    const { name, parent_id, is_active, type } = req.body;
     if (name) cat.name = name;
+    if (type) cat.type = type;
     if (parent_id !== undefined) {
       if (parent_id) {
         const depth = await getDepth(parent_id);

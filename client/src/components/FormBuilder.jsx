@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
-import { Card, Button, Space, Tag, Typography, Modal, Form, Input, Select, Switch, Popconfirm, Tooltip, Divider } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, VerticalAlignTopOutlined, VerticalAlignBottomOutlined } from '@ant-design/icons';
+import { useState, useEffect, useRef } from 'react';
+import { Card, Button, Space, Tag, Typography, Modal, Form, Input, Select, Switch, Popconfirm } from 'antd';
+import { PlusOutlined, EditOutlined, DeleteOutlined, HolderOutlined } from '@ant-design/icons';
 
 const FIELD_TYPES = [
   { value: 'text', label: 'Texto' },
@@ -10,6 +10,8 @@ const FIELD_TYPES = [
   { value: 'checkbox', label: 'Casilla de Verificación' },
   { value: 'boolean', label: 'Falso / Verdadero' },
   { value: 'date', label: 'Fecha' },
+  { value: 'time', label: 'Hora' },
+  { value: 'datetime', label: 'Fecha y Hora' },
   { value: 'file', label: 'Archivo Adjunto' },
 ];
 
@@ -21,31 +23,22 @@ const TYPE_COLORS = {
   checkbox: 'geekblue',
   boolean: 'orange',
   date: 'gold',
+  time: 'lime',
+  datetime: 'green',
   file: 'red',
 };
 
-const SYSTEM_FIELDS = [
-  { name: 'title', label: 'Título', type: 'text', required: true, system: true, placeholder: 'Describe brevemente tu solicitud' },
-  { name: 'priority', label: 'Prioridad', type: 'select', required: true, system: true, options: ['Baja', 'Media', 'Alta', 'Crítica'] },
-  { name: 'description', label: 'Descripción', type: 'textarea', required: false, system: true, placeholder: 'Describe el detalle de tu solicitud' },
-  { name: 'attachments', label: 'Adjuntos', type: 'file', required: false, system: true },
-];
-
-function getSystemDefaults() {
-  return SYSTEM_FIELDS.map(f => ({ ...f }));
-}
-
 export default function FormBuilder({ value = [], onChange }) {
-  const [fields, setFields] = useState(() => {
-    if (value.length > 0) return value;
-    return getSystemDefaults();
-  });
+  const [fields, setFields] = useState(() => [...value]);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingIndex, setEditingIndex] = useState(null);
+  const [dragIdx, setDragIdx] = useState(null);
+  const [overIdx, setOverIdx] = useState(null);
   const [form] = Form.useForm();
+  const dragNode = useRef(null);
 
   useEffect(() => {
-    if (value.length > 0) setFields(value);
+    setFields([...value]);
   }, [value]);
 
   const sync = (newFields) => {
@@ -78,76 +71,100 @@ export default function FormBuilder({ value = [], onChange }) {
   };
 
   const handleDelete = (index) => {
-    const f = fields[index];
-    if (f.system) {
-      const toggled = fields.map((field, i) =>
-        i === index ? { ...field, hidden: !field.hidden } : field
-      );
-      sync(toggled);
-      return;
-    }
     sync(fields.filter((_, i) => i !== index));
   };
 
-  const moveField = (index, dir) => {
-    const newIndex = index + dir;
-    if (newIndex < 0 || newIndex >= fields.length) return;
+  const handleDragStart = (e, index) => {
+    dragNode.current = index;
+    setDragIdx(index);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e, index) => {
+    e.preventDefault();
+    if (dragNode.current === index) return;
+    setOverIdx(index);
+  };
+
+  const handleDrop = (e, index) => {
+    e.preventDefault();
+    const from = dragNode.current;
+    if (from === index) return;
     const newFields = [...fields];
-    [newFields[index], newFields[newIndex]] = [newFields[newIndex], newFields[index]];
+    const [moved] = newFields.splice(from, 1);
+    newFields.splice(index, 0, moved);
     sync(newFields);
+    setDragIdx(null);
+    setOverIdx(null);
+    dragNode.current = null;
   };
 
-  const resetDefaults = () => {
-    sync(getSystemDefaults());
-  };
-
-  const renderFieldCard = (field, i) => {
-    const isHidden = field.hidden;
-    return (
-      <Card key={i} size="small" style={{ marginBottom: 6, opacity: isHidden ? 0.5 : 1 }}
-        actions={[
-          <Tooltip title="Editar"><EditOutlined key="edit" onClick={() => openEdit(i)}
-            style={field.system ? { color: '#d9d9d9', cursor: 'not-allowed' } : {}} /></Tooltip>,
-          <Tooltip title="Arriba"><VerticalAlignTopOutlined key="up" onClick={() => moveField(i, -1)}
-            style={i === 0 ? { color: '#d9d9d9', cursor: 'not-allowed' } : {}} /></Tooltip>,
-          <Tooltip title="Abajo"><VerticalAlignBottomOutlined key="down" onClick={() => moveField(i, 1)}
-            style={i === fields.length - 1 ? { color: '#d9d9d9', cursor: 'not-allowed' } : {}} /></Tooltip>,
-          <Tooltip title={field.system ? (isHidden ? 'Mostrar' : 'Ocultar') : 'Eliminar'}>
-            <Popconfirm key="delete"
-              title={field.system ? (isHidden ? '¿Mostrar este campo?' : '¿Ocultar este campo?') : '¿Eliminar campo?'}
-              onConfirm={() => handleDelete(i)}>
-              <DeleteOutlined style={{ color: isHidden ? '#52c41a' : '#ff4d4f' }} />
-            </Popconfirm>
-          </Tooltip>,
-        ]}
-      >
-        <Space>
-          {field.system && <Tag color="default">Sistema</Tag>}
-          <Tag color={TYPE_COLORS[field.type]}>{FIELD_TYPES.find(t => t.value === field.type)?.label || field.type}</Tag>
-          <strong>{field.label}</strong>
-          {field.required && <Tag color="red">Requerido</Tag>}
-          {isHidden && <Tag color="default">Oculto</Tag>}
-        </Space>
-      </Card>
-    );
+  const handleDragEnd = () => {
+    setDragIdx(null);
+    setOverIdx(null);
+    dragNode.current = null;
   };
 
   return (
     <div>
       <div style={{ marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Typography.Text strong>Campos del Formulario</Typography.Text>
-        <Space>
-          <Button size="small" onClick={resetDefaults}>Restablecer</Button>
-          <Button type="primary" icon={<PlusOutlined />} size="small" onClick={openAdd}>
-            Agregar Campo
-          </Button>
-        </Space>
+        <Button type="primary" icon={<PlusOutlined />} size="small" onClick={openAdd}>
+          Agregar Campo
+        </Button>
       </div>
 
       {fields.length === 0 ? (
-        <Typography.Text type="secondary">Sin campos. Agrega uno o restablece los predeterminados.</Typography.Text>
+        <Typography.Text type="secondary">Sin campos. Presiona "Agregar Campo" para comenzar.</Typography.Text>
       ) : (
-        fields.map((field, i) => renderFieldCard(field, i))
+        <div>
+          {fields.map((field, i) => {
+            const isDragging = dragIdx === i;
+            const isOver = overIdx === i && dragIdx !== i;
+            return (
+              <div
+                key={i}
+                draggable
+                onDragStart={(e) => handleDragStart(e, i)}
+                onDragOver={(e) => handleDragOver(e, i)}
+                onDrop={(e) => handleDrop(e, i)}
+                onDragEnd={handleDragEnd}
+                style={{
+                  marginBottom: 6,
+                  opacity: isDragging ? 0.3 : 1,
+                  ...(isOver && overIdx > dragIdx ? {
+                    borderTop: '3px dashed #1677ff',
+                    paddingTop: 8,
+                    boxShadow: '0 -4px 12px rgba(22,119,255,0.15)',
+                  } : {}),
+                  ...(isOver && overIdx < dragIdx ? {
+                    borderBottom: '3px dashed #1677ff',
+                    paddingBottom: 8,
+                    boxShadow: '0 4px 12px rgba(22,119,255,0.15)',
+                  } : {}),
+                  cursor: 'grab',
+                  transition: 'box-shadow 0.15s, border-color 0.15s',
+                }}
+              >
+                <Card size="small"
+                  actions={[
+                    <EditOutlined key="edit" onClick={(e) => { e.stopPropagation(); openEdit(i); }} />,
+                    <Popconfirm key="delete" title="¿Eliminar campo?" onConfirm={() => handleDelete(i)}>
+                      <DeleteOutlined style={{ color: '#ff4d4f' }} />
+                    </Popconfirm>,
+                  ]}
+                >
+                  <Space>
+                    <HolderOutlined style={{ color: '#999', cursor: 'grab' }} />
+                    <Tag color={TYPE_COLORS[field.type]}>{FIELD_TYPES.find(t => t.value === field.type)?.label || field.type}</Tag>
+                    <strong>{field.label}</strong>
+                    {field.required && <Tag color="red">Requerido</Tag>}
+                  </Space>
+                </Card>
+              </div>
+            );
+          })}
+        </div>
       )}
 
       <Modal

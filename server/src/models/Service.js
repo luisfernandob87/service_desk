@@ -13,6 +13,7 @@ const Service = sequelize.define('Service', {
   form_config: { type: DataTypes.JSONB, defaultValue: [] },
   workflow_config: { type: DataTypes.JSONB, defaultValue: {} },
   workflow_id: { type: DataTypes.INTEGER },
+  form_template_id: { type: DataTypes.INTEGER },
 }, {
   tableName: 'services',
 });

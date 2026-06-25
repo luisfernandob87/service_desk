@@ -17,6 +17,7 @@ const Approval = require('./Approval');
 const ApprovalDefinition = require('./ApprovalDefinition');
 const BusinessHour = require('./BusinessHour');
 const Workflow = require('./Workflow');
+const FormTemplate = require('./FormTemplate');
 
 /* Fase 1 associations */
 Organization.hasMany(User, { foreignKey: 'organization_id', as: 'users' });
@@ -72,6 +73,8 @@ Workflow.belongsTo(Organization, { foreignKey: 'organization_id', as: 'organizat
 Organization.hasMany(Workflow, { foreignKey: 'organization_id', as: 'workflows' });
 Service.belongsTo(Workflow, { foreignKey: 'workflow_id', as: 'workflow' });
 Workflow.hasMany(Service, { foreignKey: 'workflow_id', as: 'services' });
+Service.belongsTo(FormTemplate, { foreignKey: 'form_template_id', as: 'formTemplate' });
+FormTemplate.hasMany(Service, { foreignKey: 'form_template_id', as: 'services' });
 
 /* Workflow Execution associations (must be before Approval which references it) */
 const WorkflowExecution = require('./WorkflowExecution');
@@ -120,4 +123,5 @@ module.exports = {
   BusinessHour,
   Workflow,
   WorkflowExecution,
+  FormTemplate,
 };

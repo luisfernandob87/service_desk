@@ -1,46 +1,22 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Table, Button, Modal, Form, Input, Switch, Space, Popconfirm, message, Tag, Typography, Select } from 'antd';
+import { Table, Button, Modal, Form, Input, Switch, Space, Popconfirm, message, Tag, Typography } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, ApartmentOutlined } from '@ant-design/icons';
 import api from '../../api/client';
 
-const NODE_LABELS = {
-  start: 'Inicio',
-  incident: 'Incidente',
-  work_order: 'Orden Trabajo',
-  change_request: 'Solicitud Cambio',
-  problem: 'Problema',
-  approval: 'Aprobación',
-  notification: 'Notificación',
-  condition: 'Condición',
-  end: 'Fin',
-};
-
-const NODE_COLORS = {
-  start: 'green',
-  incident: 'red',
-  work_order: 'purple',
-  change_request: 'gold',
-  problem: 'volcano',
-  approval: 'blue',
-  notification: 'magenta',
-  condition: 'green',
-  end: 'default',
-};
-
-export default function Workflows() {
+export default function FormTemplates() {
   const navigate = useNavigate();
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
-  const [filterActive, setFilterActive] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [form] = Form.useForm();
 
   const loadData = async () => {
     setLoading(true);
     try {
-      const res = await api.get('/workflows');
+      const res = await api.get('/form-templates');
       setData(res.data);
     } catch { message.error('Error al cargar') }
     finally { setLoading(false) }
@@ -49,13 +25,14 @@ export default function Workflows() {
   useEffect(() => { loadData() }, []);
 
   const handleSave = async (values) => {
+    setSaving(true);
     try {
       if (editing) {
-        await api.put(`/workflows/${editing.id}`, { ...values, organization_id: editing.organization_id });
-        message.success('Flujo actualizado');
+        await api.put(`/form-templates/${editing.id}`, values);
+        message.success('Formulario actualizado');
       } else {
-        await api.post('/workflows', values);
-        message.success('Flujo creado');
+        await api.post('/form-templates', values);
+        message.success('Formulario creado');
       }
       setModalOpen(false);
       form.resetFields();
@@ -63,24 +40,22 @@ export default function Workflows() {
       loadData();
     } catch (err) {
       message.error(err.response?.data?.error || 'Error al guardar');
+    } finally {
+      setSaving(false);
     }
   };
 
   const handleDelete = async (id) => {
     try {
-      await api.delete(`/workflows/${id}`);
-      message.success('Flujo eliminado');
+      await api.delete(`/form-templates/${id}`);
+      message.success('Plantilla eliminada');
       loadData();
     } catch { message.error('Error al eliminar') }
   };
 
   const openEdit = (record) => {
     setEditing(record);
-    form.setFieldsValue({
-      name: record.name,
-      description: record.description,
-      is_active: record.is_active !== false,
-    });
+    form.setFieldsValue({ name: record.name, description: record.description, is_active: record.is_active !== false });
     setModalOpen(true);
   };
 
@@ -90,29 +65,29 @@ export default function Workflows() {
     setModalOpen(true);
   };
 
-  const filteredData = filterActive ? data.filter(w => w.is_active !== false) : data;
-
-  const getNodeTypesSummary = (nodes) => {
-    if (!nodes?.length) return '-';
-    const types = [...new Set(nodes.map(n => n.data?.nodeType))];
-    return types.map(t => (
-      <Tag key={t} color={NODE_COLORS[t]}>{NODE_LABELS[t] || t}</Tag>
-    ));
-  };
-
   const columns = [
     { title: 'Nombre', dataIndex: 'name', key: 'name' },
     { title: 'Descripción', dataIndex: 'description', key: 'description', ellipsis: true },
     {
-      title: 'Activo', dataIndex: 'is_active', key: 'is_active', width: 80,
-      render: (v) => v === false ? <Tag color="red">No</Tag> : <Tag color="green">Sí</Tag>,
+      title: 'Campos', key: 'fields',
+      render: (_, r) => {
+        const fields = r.config || [];
+        const visible = fields.filter(f => !f.hidden);
+        return <span>{visible.length} campos ({fields.length - visible.length} ocultos)</span>;
+      },
     },
     {
-      title: 'Acciones', key: 'actions', width: 180,
+      title: 'Activo', dataIndex: 'is_active', key: 'is_active',
+      render: (v) => v !== false ? <Tag color="green">Sí</Tag> : <Tag color="red">No</Tag>,
+    },
+    {
+      title: 'Acciones', key: 'actions',
       render: (_, r) => (
         <Space>
           <Button icon={<EditOutlined />} size="small" onClick={() => openEdit(r)} />
-          <Button icon={<ApartmentOutlined />} size="small" onClick={() => navigate(`/admin/workflows/${r.id}/design`)}>Diseñar</Button>
+          <Button icon={<ApartmentOutlined />} size="small" onClick={() => navigate(`/admin/form-templates/${r.id}/design`)}>
+            Diseñar
+          </Button>
           <Popconfirm title="¿Eliminar?" onConfirm={() => handleDelete(r.id)}>
             <Button icon={<DeleteOutlined />} size="small" danger />
           </Popconfirm>
@@ -123,28 +98,18 @@ export default function Workflows() {
 
   return (
     <div>
-      <Typography.Title level={4}>Flujos de Trabajo</Typography.Title>
-      <Typography.Paragraph type="secondary">
-        Los flujos definen el proceso de atención de un servicio: desde la creación del ticket, aprobaciones,
-        notificaciones y más.
-      </Typography.Paragraph>
+      <Typography.Title level={4}>Formularios</Typography.Title>
       <Button type="primary" icon={<PlusOutlined />} onClick={openCreate} style={{ marginBottom: 16 }}>
-        Nuevo Flujo
+        Nuevo Formulario
       </Button>
-      <Space style={{ marginBottom: 16 }}>
-        <Select value={filterActive} onChange={setFilterActive} style={{ width: 140 }}
-          options={[
-            { label: 'Activos', value: true },
-            { label: 'Todos', value: false },
-          ]} />
-      </Space>
-      <Table dataSource={filteredData} columns={columns} rowKey="id" loading={loading} />
+      <Table dataSource={data} columns={columns} rowKey="id" loading={loading} />
 
       <Modal
-        title={editing ? 'Editar Flujo' : 'Nuevo Flujo'}
+        title={editing ? 'Editar Formulario' : 'Nuevo Formulario'}
         open={modalOpen}
         onCancel={() => { setModalOpen(false); setEditing(null); }}
         onOk={() => form.submit()}
+        confirmLoading={saving}
       >
         <Form form={form} layout="vertical" onFinish={handleSave}>
           <Form.Item name="name" label="Nombre" rules={[{ required: true }]}>
@@ -160,8 +125,6 @@ export default function Workflows() {
           )}
         </Form>
       </Modal>
-
-
     </div>
   );
 }

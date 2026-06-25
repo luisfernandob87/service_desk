@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { Card, Typography, Form, Input, Select, Radio, DatePicker, Button, Spin, message, Alert, Checkbox, Switch, Upload } from 'antd';
+import { Card, Typography, Form, Input, Select, Radio, DatePicker, TimePicker, Button, Spin, message, Alert, Checkbox, Switch, Upload } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';
 import api from '../../api/client';
 import { useAuth } from '../../contexts/AuthContext';
@@ -139,7 +139,8 @@ export default function ServiceRequest() {
 
     if (field.name === 'attachments' && field.type === 'file') {
       return (
-        <Form.Item key={field.name} name={fieldName} label={field.label} valuePropName="fileList">
+        <Form.Item key={field.name} name={fieldName} label={field.label} valuePropName="fileList"
+          getValueFromEvent={(e) => Array.isArray(e) ? e : e?.fileList}>
           <Upload maxCount={5} beforeUpload={() => false} multiple>
             <Button icon={<UploadOutlined />}>Seleccionar archivos</Button>
           </Upload>
@@ -179,17 +180,22 @@ export default function ServiceRequest() {
         name={fieldName}
         label={field.label}
         rules={field.required ? [{ required: true, message: `${field.label} es requerido` }] : []}
-        valuePropName={field.type === 'checkbox' || field.type === 'boolean' ? 'checked' : field.type === 'file' ? 'fileList' : undefined}>
+        valuePropName={field.type === 'checkbox' || field.type === 'boolean' ? 'checked' : field.type === 'file' ? 'fileList' : undefined}
+        getValueFromEvent={field.type === 'file' ? (e) => Array.isArray(e) ? e : e?.fileList : undefined}>
         {field.type === 'select' ? (
           <Select options={(field.options || []).map(o => ({ label: o, value: o }))} placeholder={field.placeholder} />
         ) : field.type === 'radio' ? (
           <Radio.Group options={field.options || []} />
         ) : field.type === 'checkbox' ? (
-          <Checkbox>{field.label}</Checkbox>
+          <Checkbox.Group options={(field.options || []).map(o => ({ label: o, value: o }))} />
         ) : field.type === 'boolean' ? (
           <Switch checkedChildren="Verdadero" unCheckedChildren="Falso" />
         ) : field.type === 'date' ? (
           <DatePicker style={{ width: '100%' }} />
+        ) : field.type === 'time' ? (
+          <TimePicker style={{ width: '100%' }} format="HH:mm" />
+        ) : field.type === 'datetime' ? (
+          <DatePicker showTime style={{ width: '100%' }} format="YYYY-MM-DD HH:mm" />
         ) : field.type === 'textarea' ? (
           <TextArea rows={3} placeholder={field.placeholder} />
         ) : field.type === 'file' ? (
