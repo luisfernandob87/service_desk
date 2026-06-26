@@ -43,6 +43,7 @@ const allMenuItems = [
   { key: '/admin/organizations', icon: <ApartmentOutlined />, label: 'Organizaciones' },
   { key: '/admin/groups', icon: <TeamOutlined />, label: 'Grupos de Soporte' },
   { key: '/admin/users', icon: <UserOutlined />, label: 'Usuarios' },
+  { key: '/admin/positions', icon: <UserOutlined />, label: 'Puestos' },
   { key: '/admin/categories', icon: <AppstoreOutlined />, label: 'Categorías' },
   { key: '/admin/services', icon: <ToolOutlined />, label: 'Servicios' },
   { key: 'div3', type: 'divider' },

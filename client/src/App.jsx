@@ -11,8 +11,11 @@ import UserRequestDetail from './pages/user/RequestDetail';
 import TicketDetail from './pages/user/TicketDetail';
 import Dashboard from './pages/admin/Dashboard';
 import Organizations from './pages/admin/Organizations';
+import OrganizationDetail from './pages/admin/OrganizationDetail';
 import Users from './pages/admin/Users';
 import Groups from './pages/admin/Groups';
+import GroupDetail from './pages/admin/GroupDetail';
+import UserDetail from './pages/admin/UserDetail';
 import Categories from './pages/admin/Categories';
 import AdminServices from './pages/admin/Services';
 import ServiceForm from './pages/admin/ServiceForm';
@@ -28,6 +31,7 @@ import WorkflowDesigner from './pages/admin/WorkflowDesigner';
 import FormTemplates from './pages/admin/FormTemplates';
 import FormTemplateDesigner from './pages/admin/FormTemplateDesigner';
 import LandingEditor from './pages/admin/LandingEditor';
+import Positions from './pages/admin/Positions';
 import { BugOutlined, ToolOutlined, SwapOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 
 function ProtectedRoute({ children, roles }) {
@@ -73,8 +77,14 @@ function AppRoutes() {
       }>
         <Route index element={<Dashboard />} />
         <Route path="organizations" element={<Organizations />} />
+        <Route path="organizations/new" element={<OrganizationDetail />} />
+        <Route path="organizations/:id/edit" element={<OrganizationDetail />} />
         <Route path="users" element={<Users />} />
+        <Route path="users/new" element={<UserDetail />} />
+        <Route path="users/:id/edit" element={<UserDetail />} />
         <Route path="groups" element={<Groups />} />
+        <Route path="groups/new" element={<GroupDetail />} />
+        <Route path="groups/:id/edit" element={<GroupDetail />} />
         <Route path="categories" element={<Categories />} />
         <Route path="services" element={<AdminServices />} />
         <Route path="services/new" element={<ServiceForm />} />
@@ -94,6 +104,7 @@ function AppRoutes() {
         <Route path="form-templates" element={<FormTemplates />} />
         <Route path="form-templates/:id/design" element={<FormTemplateDesigner />} />
         <Route path="landing" element={<LandingEditor />} />
+        <Route path="positions" element={<Positions />} />
       </Route>
 
       <Route path="/" element={<Navigate to={`/org/${defaultOrg}`} />} />

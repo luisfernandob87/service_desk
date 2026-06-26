@@ -71,7 +71,7 @@ export default function ServiceForm() {
         if (draft) {
           sessionStorage.removeItem('service_form_draft');
           const parsed = JSON.parse(draft);
-          if ((!isEditing || parsed._return_to_id === id) && parsed.organization_ids?.length) {
+          if (!isEditing || parsed._return_to_id === id) {
             form.setFieldsValue(parsed);
           }
         }

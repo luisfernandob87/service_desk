@@ -18,6 +18,9 @@ const ApprovalDefinition = require('./ApprovalDefinition');
 const BusinessHour = require('./BusinessHour');
 const Workflow = require('./Workflow');
 const FormTemplate = require('./FormTemplate');
+const BusinessUnit = require('./BusinessUnit');
+const Department = require('./Department');
+const Position = require('./Position');
 
 /* Fase 1 associations */
 Organization.hasMany(User, { foreignKey: 'organization_id', as: 'users' });
@@ -102,6 +105,19 @@ Approval.belongsTo(WorkflowExecution, { foreignKey: 'workflow_execution_id', as:
 ApprovalDefinition.belongsTo(Service, { foreignKey: 'service_id', as: 'service' });
 Service.hasMany(ApprovalDefinition, { foreignKey: 'service_id', as: 'approvalDefinitions' });
 
+/* Business Unit & Department associations */
+Organization.hasMany(BusinessUnit, { foreignKey: 'organization_id', as: 'businessUnits' });
+BusinessUnit.belongsTo(Organization, { foreignKey: 'organization_id', as: 'organization' });
+BusinessUnit.hasMany(Department, { foreignKey: 'business_unit_id', as: 'departments' });
+Department.belongsTo(BusinessUnit, { foreignKey: 'business_unit_id', as: 'businessUnit' });
+User.belongsTo(BusinessUnit, { foreignKey: 'business_unit_id', as: 'businessUnit' });
+User.belongsTo(Department, { foreignKey: 'department_id', as: 'department' });
+
+/* Position associations */
+Organization.hasMany(Position, { foreignKey: 'organization_id', as: 'positions' });
+Position.belongsTo(Organization, { foreignKey: 'organization_id', as: 'organization' });
+User.belongsTo(Position, { foreignKey: 'position_id', as: 'position' });
+
 module.exports = {
   sequelize,
   Organization,
@@ -124,4 +140,7 @@ module.exports = {
   Workflow,
   WorkflowExecution,
   FormTemplate,
+  BusinessUnit,
+  Department,
+  Position,
 };

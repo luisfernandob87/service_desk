@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Table, Button, Select, Space, message, Tag, Typography } from 'antd';
-import { PlusOutlined, EditOutlined, EyeOutlined } from '@ant-design/icons';
+import { Table, Button, Select, Input, Space, message, Tag, Typography } from 'antd';
+import { PlusOutlined, EditOutlined, EyeOutlined, SearchOutlined } from '@ant-design/icons';
 import api from '../../api/client';
 
 export default function AdminServices() {
@@ -9,6 +9,7 @@ export default function AdminServices() {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [filterPublished, setFilterPublished] = useState(true);
+  const [searchText, setSearchText] = useState('');
 
   const loadData = async () => {
     setLoading(true);
@@ -21,7 +22,10 @@ export default function AdminServices() {
 
   useEffect(() => { loadData() }, []);
 
-  const filteredData = filterPublished ? data.filter(s => s.is_published) : data;
+  const filteredData = data.filter(s =>
+    (!filterPublished || s.is_published) &&
+    (!searchText || s.name.toLowerCase().includes(searchText.toLowerCase()))
+  );
 
   const columns = [
     { title: 'Nombre', dataIndex: 'name', key: 'name' },
@@ -60,6 +64,7 @@ export default function AdminServices() {
         Nuevo Servicio
       </Button>
       <Space style={{ marginBottom: 16 }}>
+        <Input.Search allowClear placeholder="Buscar por nombre..." onSearch={setSearchText} onChange={e => setSearchText(e.target.value)} style={{ width: 220 }} />
         <Select value={filterPublished} onChange={setFilterPublished} style={{ width: 160 }}
           options={[
             { label: 'Publicados', value: true },

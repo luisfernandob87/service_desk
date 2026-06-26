@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Table, Button, Modal, Form, Input, Select, TreeSelect, Space, Popconfirm, message, Tag, Typography, Checkbox } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, FolderOutlined, FileOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, FolderOutlined, FileOutlined, SearchOutlined } from '@ant-design/icons';
 import api from '../../api/client';
 
 function getDepthFromFlat(flat, id) {
@@ -65,6 +65,7 @@ export default function Categories() {
   const [parentPreset, setParentPreset] = useState(null);
   const [filterType, setFilterType] = useState(null);
   const [categoryType, setCategoryType] = useState('service');
+  const [searchText, setSearchText] = useState('');
   const [form] = Form.useForm();
 
   const loadData = async () => {
@@ -93,7 +94,17 @@ export default function Categories() {
   }, [data, filterType]);
 
   const filterNode = (items) => items?.filter(n => visibleIds.has(n.id)).map(n => ({ ...n, children: filterNode(n.children) }));
-  const treeSource = visibleIds ? filterNode(treeData) : treeData;
+  const filterSearch = (items) => items?.reduce((acc, n) => {
+    const children = filterSearch(n.children);
+    if (children?.length || n.name.toLowerCase().includes(searchText.toLowerCase())) {
+      acc.push({ ...n, children: children?.length ? children : undefined });
+    }
+    return acc;
+  }, []);
+
+  let treeSource = treeData;
+  if (visibleIds) treeSource = filterNode(treeSource);
+  if (searchText) treeSource = filterSearch(treeSource);
 
   const handleSave = async (values) => {
     try {
@@ -191,6 +202,7 @@ export default function Categories() {
         Nueva Categoría
       </Button>
       <Space style={{ marginBottom: 16 }}>
+        <Input.Search allowClear placeholder="Buscar por nombre..." onSearch={setSearchText} onChange={e => setSearchText(e.target.value)} style={{ width: 220 }} />
         <Select value={filterType} onChange={setFilterType} style={{ width: 160 }} allowClear placeholder="Todos los tipos"
           options={Object.entries(TYPE_LABELS).map(([k, v]) => ({ label: v, value: k }))} />
       </Space>

@@ -14,5 +14,8 @@ router.use('/business-hours', require('./businessHours'));
 router.use('/workflows', require('./workflows'));
 router.use('/workflow-executions', require('./workflowExecutions'));
 router.use('/form-templates', require('./formTemplates'));
+router.use('/business-units', require('./businessUnits'));
+router.use('/departments', require('./departments'));
+router.use('/positions', require('./positions'));
 
 module.exports = router;

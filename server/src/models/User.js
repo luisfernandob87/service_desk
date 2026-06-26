@@ -33,6 +33,15 @@ const User = sequelize.define('User', {
   phone: {
     type: DataTypes.STRING(50),
   },
+  business_unit_id: {
+    type: DataTypes.INTEGER,
+  },
+  department_id: {
+    type: DataTypes.INTEGER,
+  },
+  position_id: {
+    type: DataTypes.INTEGER,
+  },
   is_active: {
     type: DataTypes.BOOLEAN,
     defaultValue: true,

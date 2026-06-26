@@ -46,7 +46,7 @@ exports.getById = async (req, res) => {
 
 exports.create = async (req, res) => {
   try {
-    const { organization_ids, name, description } = req.body;
+    const { organization_ids, name, description, members } = req.body;
     if (!organization_ids || organization_ids.length === 0) {
       return res.status(400).json({ error: 'Al menos una organización es requerida' });
     }
@@ -59,8 +59,16 @@ exports.create = async (req, res) => {
     const orgs = await Organization.findAll({ where: { id: organization_ids } });
     await group.setOrganizations(orgs);
 
+    if (members !== undefined) {
+      const users = await User.findAll({ where: { id: members } });
+      await group.setMembers(users);
+    }
+
     const result = await SupportGroup.findByPk(group.id, {
-      include: [{ model: Organization, as: 'organizations', attributes: ['id', 'name', 'slug'] }],
+      include: [
+        { model: Organization, as: 'organizations', attributes: ['id', 'name', 'slug'] },
+        { model: User, as: 'members', attributes: ['id', 'full_name', 'email'] },
+      ],
     });
 
     res.status(201).json(result);

@@ -533,6 +533,66 @@ async function runMigrations() {
       END $$;
     `);
 
+    await sequelize.query(`
+      CREATE TABLE IF NOT EXISTS business_units (
+        id SERIAL PRIMARY KEY,
+        organization_id INTEGER NOT NULL REFERENCES organizations(id),
+        name VARCHAR(200) NOT NULL,
+        description TEXT,
+        is_active BOOLEAN DEFAULT true,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        deleted_at TIMESTAMP WITH TIME ZONE
+      );
+    `);
+
+    await sequelize.query(`
+      CREATE TABLE IF NOT EXISTS departments (
+        id SERIAL PRIMARY KEY,
+        business_unit_id INTEGER NOT NULL REFERENCES business_units(id),
+        name VARCHAR(200) NOT NULL,
+        description TEXT,
+        is_active BOOLEAN DEFAULT true,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        deleted_at TIMESTAMP WITH TIME ZONE
+      );
+    `);
+
+    await sequelize.query(`
+      DO $$ BEGIN
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS business_unit_id INTEGER REFERENCES business_units(id);
+      EXCEPTION WHEN OTHERS THEN NULL;
+      END $$;
+    `);
+
+    await sequelize.query(`
+      DO $$ BEGIN
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS department_id INTEGER REFERENCES departments(id);
+      EXCEPTION WHEN OTHERS THEN NULL;
+      END $$;
+    `);
+
+    await sequelize.query(`
+      CREATE TABLE IF NOT EXISTS positions (
+        id SERIAL PRIMARY KEY,
+        organization_id INTEGER NOT NULL REFERENCES organizations(id),
+        name VARCHAR(200) NOT NULL,
+        description TEXT,
+        is_active BOOLEAN DEFAULT true,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        deleted_at TIMESTAMP WITH TIME ZONE
+      );
+    `);
+
+    await sequelize.query(`
+      DO $$ BEGIN
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS position_id INTEGER REFERENCES positions(id);
+      EXCEPTION WHEN OTHERS THEN NULL;
+      END $$;
+    `);
+
     console.log('Migrations completed successfully.');
   } catch (error) {
     console.error('Migration failed:', error);
