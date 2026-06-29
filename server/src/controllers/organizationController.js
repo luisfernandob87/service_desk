@@ -50,12 +50,13 @@ exports.update = async (req, res) => {
     const org = await Organization.findByPk(req.params.id);
     if (!org) return res.status(404).json({ error: 'Organización no encontrada' });
 
-    const { name, slug, logo_url, is_active, landing_config } = req.body;
+    const { name, slug, logo_url, is_active, landing_config, login_config } = req.body;
     if (name) org.name = name;
     if (slug) org.slug = slug;
     if (logo_url !== undefined) org.logo_url = logo_url;
     if (is_active !== undefined) org.is_active = is_active;
     if (landing_config !== undefined) org.landing_config = landing_config;
+    if (login_config !== undefined) org.login_config = login_config;
     await org.save();
 
     res.json(org);
@@ -75,6 +76,20 @@ exports.updateLandingConfig = async (req, res) => {
     res.json({ landing_config: org.landing_config });
   } catch (error) {
     res.status(500).json({ error: 'Error al actualizar configuración de landing page' });
+  }
+};
+
+exports.updateLoginConfig = async (req, res) => {
+  try {
+    const org = await Organization.findByPk(req.params.id);
+    if (!org) return res.status(404).json({ error: 'Organización no encontrada' });
+    if (req.body.login_config !== undefined) {
+      org.login_config = req.body.login_config;
+      await org.save();
+    }
+    res.json({ login_config: org.login_config });
+  } catch (error) {
+    res.status(500).json({ error: 'Error al actualizar configuración de login' });
   }
 };
 

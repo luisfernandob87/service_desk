@@ -141,7 +141,7 @@ export default function ServiceForm() {
         {loading ? <Spin style={{ display: 'block', margin: '40px auto' }} /> : (
           <Form form={form} layout="vertical" onFinish={handleSave}>
             <Form.Item name="organization_ids" label="Organizaciones" rules={[{ required: true, message: 'Selecciona al menos una' }]}>
-              <Select mode="multiple" options={orgs.map(o => ({ label: o.name, value: o.id }))} />
+              <Select mode="multiple" showSearch optionFilterProp="label" options={orgs.filter(o => o.is_active !== false).map(o => ({ label: o.name, value: o.id }))} />
             </Form.Item>
             <Form.Item name="name" label="Nombre" rules={[{ required: true }]}>
               <Input />

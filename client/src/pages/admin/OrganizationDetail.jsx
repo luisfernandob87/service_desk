@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Card, Typography, Form, Input, Select, Switch, Button, Space, message, Spin, Divider, Table, Tag, Modal, Tooltip } from 'antd';
-import { ArrowLeftOutlined, SaveOutlined, PlusOutlined, EditOutlined, CloseOutlined, CheckOutlined, TeamOutlined } from '@ant-design/icons';
+import { Card, Typography, Form, Input, Select, Switch, Button, Space, message, Spin, Divider, Table, Tag, Modal, Tooltip, Collapse } from 'antd';
+import { ArrowLeftOutlined, SaveOutlined, PlusOutlined, EditOutlined, CloseOutlined, CheckOutlined, TeamOutlined, SettingOutlined } from '@ant-design/icons';
 import api from '../../api/client';
 
 /* Sub-component: Department table inside BU row */
@@ -256,6 +256,43 @@ export default function OrganizationDetail() {
           <Form.Item name="is_active" label="Activo" valuePropName="checked">
             <Switch />
           </Form.Item>
+
+          <Collapse ghost items={[{
+            key: 'login',
+            label: <span><SettingOutlined /> Personalización del Login</span>,
+            children: (
+              <div style={{ padding: '8px 0' }}>
+                <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
+                  Personaliza la apariencia de la página de inicio de sesión para esta organización.
+                </Typography.Text>
+                <Form.Item name={['login_config', 'logo_url']} label="URL del Logo (login)">
+                  <Input placeholder="https://ejemplo.com/logo.png" />
+                </Form.Item>
+                <Form.Item name={['login_config', 'bg_color']} label="Color de Fondo">
+                  <Input type="color" style={{ width: 80, padding: 4 }} />
+                </Form.Item>
+                <Form.Item name={['login_config', 'bg_image']} label="URL de Imagen de Fondo">
+                  <Input placeholder="https://ejemplo.com/fondo.jpg" />
+                </Form.Item>
+                <Form.Item name={['login_config', 'primary_color']} label="Color Primario (botón)">
+                  <Input type="color" style={{ width: 80, padding: 4 }} />
+                </Form.Item>
+                <Form.Item name={['login_config', 'title']} label="Título de Bienvenida">
+                  <Input placeholder="Bienvenido" />
+                </Form.Item>
+                <Form.Item name={['login_config', 'subtitle']} label="Subtítulo">
+                  <Input placeholder="Portal de Servicios" />
+                </Form.Item>
+                <Form.Item name={['login_config', 'button_text']} label="Texto del Botón">
+                  <Input placeholder="Iniciar Sesión" />
+                </Form.Item>
+                <Form.Item name={['login_config', 'footer_text']} label="Texto del Footer">
+                  <Input placeholder="© 2026 ACME Inc." />
+                </Form.Item>
+              </div>
+            ),
+          }]} />
+
           <Button type="primary" htmlType="submit" icon={<SaveOutlined />} loading={saving} size="large">
             {isEditing ? 'Actualizar Organización' : 'Crear Organización'}
           </Button>

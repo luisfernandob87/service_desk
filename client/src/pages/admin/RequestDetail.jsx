@@ -55,7 +55,7 @@ export default function RequestDetail() {
 
   return (
     <div style={{ maxWidth: 1000, margin: '0 auto' }}>
-      <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/admin/peticiones')} style={{ marginBottom: 16 }}>Volver</Button>
+      <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/support/peticiones')} style={{ marginBottom: 16 }}>Volver</Button>
       <Card>
         <Space>
           <Typography.Title level={4} style={{ margin: 0 }}>Petición #{exec.request_number}</Typography.Title>
@@ -71,7 +71,7 @@ export default function RequestDetail() {
           <Descriptions.Item label="Workflow">{exec.workflow?.name || '-'}</Descriptions.Item>
           {exec.parentExecution && (
             <Descriptions.Item label="Reapertura de" span={2}>
-              <Link to={`/admin/peticiones/${exec.parentExecution.id}`}>
+              <Link to={`/support/peticiones/${exec.parentExecution.id}`}>
                 <LinkOutlined /> Petición #{exec.parentExecution.request_number || exec.parentExecution.id}
               </Link>
             </Descriptions.Item>
@@ -80,7 +80,7 @@ export default function RequestDetail() {
             <Descriptions.Item label="Reabierta como" span={2}>
               {(exec.childExecutions || []).map(child => (
                 <div key={child.id}>
-                  <Link to={`/admin/peticiones/${child.id}`}>
+                  <Link to={`/support/peticiones/${child.id}`}>
                     <LinkOutlined /> Petición #{child.request_number || child.id}
                   </Link>
                   <Tag color="blue" style={{ marginLeft: 8 }}>

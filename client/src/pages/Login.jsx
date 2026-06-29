@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Form, Input, Button, Card, Typography, message, Alert } from 'antd';
 import { UserOutlined, LockOutlined } from '@ant-design/icons';
@@ -8,8 +8,23 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [searchParams] = useSearchParams();
-  const { login } = useAuth();
+  const { user, login } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (user) {
+      const redirect = searchParams.get('redirect');
+      if (redirect) {
+        navigate(redirect, { replace: true });
+      } else if (user.role === 'end_user') {
+        navigate(`/org/${user.org_slug}`, { replace: true });
+      } else if (user.role === 'resolver') {
+        navigate('/support', { replace: true });
+      } else {
+        navigate('/admin', { replace: true });
+      }
+    }
+  }, [user]);
 
   const handleSubmit = async (values) => {
     setLoading(true);
@@ -20,6 +35,8 @@ export default function Login() {
       if (redirect) return navigate(redirect);
       if (data.user.role === 'end_user') {
         navigate(`/org/${data.user.org_slug}`);
+      } else if (data.user.role === 'resolver') {
+        navigate('/support');
       } else {
         navigate('/admin');
       }

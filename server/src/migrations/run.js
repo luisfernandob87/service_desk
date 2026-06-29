@@ -593,6 +593,13 @@ async function runMigrations() {
       END $$;
     `);
 
+    await sequelize.query(`
+      DO $$ BEGIN
+        ALTER TABLE organizations ADD COLUMN IF NOT EXISTS login_config JSONB DEFAULT '{}';
+      EXCEPTION WHEN OTHERS THEN NULL;
+      END $$;
+    `);
+
     console.log('Migrations completed successfully.');
   } catch (error) {
     console.error('Migration failed:', error);

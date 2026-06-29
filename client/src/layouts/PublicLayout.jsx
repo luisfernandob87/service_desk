@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Outlet, Link, useParams } from 'react-router-dom';
 import { Layout, Typography, Button, Dropdown, Space, Avatar, Modal, Form, Input, message } from 'antd';
-import { UserOutlined, LogoutOutlined, KeyOutlined } from '@ant-design/icons';
+import { UserOutlined, LogoutOutlined, KeyOutlined, ApartmentOutlined, ToolOutlined } from '@ant-design/icons';
 import NotificationBell from '../components/NotificationBell';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../api/client';
@@ -47,7 +47,12 @@ export default function PublicLayout() {
                   { type: 'divider' },
                   { key: 'requests', label: 'Mis Solicitudes' },
                   { key: 'password', icon: <KeyOutlined />, label: 'Cambiar Contraseña' },
-                  user.role !== 'end_user' && { key: 'admin', label: 'Admin' },
+                  ...(user.role === 'admin' || user.role === 'manager'
+                    ? [{ key: 'admin', icon: <ApartmentOutlined />, label: 'Ir a Admin' }]
+                    : []),
+                  ...(user.role === 'admin' || user.role === 'manager' || user.role === 'resolver'
+                    ? [{ key: 'support', icon: <ToolOutlined />, label: 'Ir a Soporte' }]
+                    : []),
                   { type: 'divider' },
                   { key: 'logout', icon: <LogoutOutlined />, label: 'Cerrar Sesión', danger: true },
                 ].filter(Boolean),
@@ -55,6 +60,7 @@ export default function PublicLayout() {
                   if (key === 'logout') logout();
                   if (key === 'password') setPwdOpen(true);
                   if (key === 'admin') window.location.href = '/admin';
+                  if (key === 'support') window.location.href = '/support';
                   if (key === 'requests') window.location.href = '/my-requests';
                 },
               }}
@@ -66,7 +72,7 @@ export default function PublicLayout() {
             </Dropdown>
             </Space>
           ) : (
-            <Button type="link" href="/login" style={{ color: '#fff' }}>Iniciar Sesión</Button>
+            <Button type="link" href={`/org/${slug}/login`} style={{ color: '#fff' }}>Iniciar Sesión</Button>
           )}
         </div>
       </Header>

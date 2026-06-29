@@ -35,7 +35,7 @@ export default function ApprovalsPage() {
       render: (v, r) => (
         <Space>
           {r.status === 'pending' && <Badge status="processing" color="gold" />}
-          <a onClick={() => navigate(`/admin/aprobaciones/${r.id}`)}>{r.code || `#${r.id}`}</a>
+          <a onClick={() => navigate(`/support/aprobaciones/${r.id}`)}>{r.code || `#${r.id}`}</a>
         </Space>
       ),
     },
@@ -43,7 +43,7 @@ export default function ApprovalsPage() {
     {
       title: 'Petición', key: 'request',
       render: (_, r) => r.execution?.request_number
-        ? <a onClick={() => navigate(`/admin/peticiones/${r.execution.id}`)}>#{r.execution.request_number}</a>
+        ? <a onClick={() => navigate(`/support/peticiones/${r.execution.id}`)}>#{r.execution.request_number}</a>
         : '-',
     },
     {
@@ -58,7 +58,7 @@ export default function ApprovalsPage() {
     {
       title: '',
       key: 'action',
-      render: (_, r) => <Button type="link" icon={<EyeOutlined />} onClick={() => navigate(`/admin/aprobaciones/${r.id}`)} />,
+      render: (_, r) => <Button type="link" icon={<EyeOutlined />} onClick={() => navigate(`/support/aprobaciones/${r.id}`)} />,
     },
   ];
 

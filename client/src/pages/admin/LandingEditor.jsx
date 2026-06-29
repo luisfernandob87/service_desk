@@ -1,21 +1,13 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Typography, Button, Space, Card, Select, Modal, Form, Input,
-  InputNumber, ColorPicker, message, Switch, Tooltip, Popconfirm,
+  ColorPicker, message, Switch, Tooltip, Popconfirm,
 } from 'antd';
 import {
   PlusOutlined, DeleteOutlined, EditOutlined, EyeOutlined,
-  VerticalAlignTopOutlined, VerticalAlignBottomOutlined,
+  HolderOutlined,
 } from '@ant-design/icons';
-import {
-  DndContext, closestCenter, PointerSensor, useSensor, useSensors,
-} from '@dnd-kit/core';
-import {
-  arrayMove, SortableContext, useSortable, verticalListSortingStrategy,
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
 import api from '../../api/client';
-import { useAuth } from '../../contexts/AuthContext';
 
 const BLOCK_TYPES = [
   { value: 'hero', label: 'Hero (Título + Subtítulo)' },
@@ -26,49 +18,9 @@ const BLOCK_TYPES = [
   { value: 'footer', label: 'Footer' },
 ];
 
-function SortableBlock({ block, onEdit, onDelete, onMoveUp, onMoveDown, index, total }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: block.id });
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-  };
-
-  const typeLabel = BLOCK_TYPES.find(t => t.value === block.type)?.label || block.type;
-
-  return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-      <Card
-        size="small"
-        style={{ marginBottom: 8, cursor: 'grab' }}
-        actions={[
-          <Tooltip title="Editar"><EditOutlined key="edit" onClick={(e) => { e.stopPropagation(); onEdit(block); }} /></Tooltip>,
-          <Tooltip title="Mover arriba">
-            <VerticalAlignTopOutlined key="up" onClick={(e) => { e.stopPropagation(); onMoveUp(index); }}
-              style={index === 0 ? { color: '#d9d9d9', cursor: 'not-allowed' } : {}} />
-          </Tooltip>,
-          <Tooltip title="Mover abajo">
-            <VerticalAlignBottomOutlined key="down" onClick={(e) => { e.stopPropagation(); onMoveDown(index); }}
-              style={index === total - 1 ? { color: '#d9d9d9', cursor: 'not-allowed' } : {}} />
-          </Tooltip>,
-          <Popconfirm key="delete" title="¿Eliminar bloque?" onConfirm={() => onDelete(block.id)}>
-            <DeleteOutlined style={{ color: '#ff4d4f' }} />
-          </Popconfirm>,
-        ]}
-      >
-        <Space>
-          <Typography.Text strong>{typeLabel}</Typography.Text>
-          {block.type === 'hero' && <Typography.Text type="secondary">{block.props?.title || '(sin título)'}</Typography.Text>}
-          {block.type === 'text' && <Typography.Text type="secondary" ellipsis style={{ maxWidth: 300 }}>{block.props?.content || '(sin contenido)'}</Typography.Text>}
-          {block.type === 'service_grid' && <Typography.Text type="secondary">Visible: {block.props?.visible !== false ? 'Sí' : 'No'}</Typography.Text>}
-        </Space>
-      </Card>
-    </div>
-  );
-}
-
 export default function LandingEditor() {
-  const { user } = useAuth();
+  const [orgs, setOrgs] = useState([]);
+  const [selectedOrgId, setSelectedOrgId] = useState(null);
   const [org, setOrg] = useState(null);
   const [blocks, setBlocks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -76,23 +28,30 @@ export default function LandingEditor() {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editingBlock, setEditingBlock] = useState(null);
   const [form] = Form.useForm();
+  const [dragIdx, setDragIdx] = useState(null);
+  const [overIdx, setOverIdx] = useState(null);
+  const dragNode = useRef(null);
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
-  );
+  useEffect(() => {
+    api.get('/organizations')
+      .then(res => setOrgs(res.data))
+      .catch(() => message.error('Error al cargar organizaciones'))
+      .finally(() => setLoading(false));
+  }, []);
 
-  const loadOrg = useCallback(async () => {
-    if (!user?.org_slug) return;
+  const loadOrg = useCallback(async (orgId) => {
     setLoading(true);
     try {
-      const res = await api.get(`/organizations/by-slug/${user.org_slug}`);
+      const res = await api.get(`/organizations/${orgId}`);
       setOrg(res.data);
       setBlocks(res.data.landing_config || []);
     } catch { message.error('Error al cargar organización') }
     finally { setLoading(false) }
-  }, [user?.org_slug]);
+  }, []);
 
-  useEffect(() => { loadOrg() }, [loadOrg]);
+  useEffect(() => {
+    if (selectedOrgId) loadOrg(selectedOrgId);
+  }, [selectedOrgId, loadOrg]);
 
   const handleSave = async () => {
     if (!org) return;
@@ -106,13 +65,35 @@ export default function LandingEditor() {
     finally { setSaving(false) }
   };
 
-  const handleDragEnd = (event) => {
-    const { active, over } = event;
-    if (active.id !== over?.id) {
-      const oldIndex = blocks.findIndex(b => b.id === active.id);
-      const newIndex = blocks.findIndex(b => b.id === over.id);
-      setBlocks(arrayMove(blocks, oldIndex, newIndex));
-    }
+  const handleDragStart = (e, index) => {
+    dragNode.current = index;
+    setDragIdx(index);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e, index) => {
+    e.preventDefault();
+    if (dragNode.current === index) return;
+    setOverIdx(index);
+  };
+
+  const handleDrop = (e, index) => {
+    e.preventDefault();
+    const from = dragNode.current;
+    if (from === index) return;
+    const newBlocks = [...blocks];
+    const [moved] = newBlocks.splice(from, 1);
+    newBlocks.splice(index, 0, moved);
+    setBlocks(newBlocks);
+    setDragIdx(null);
+    setOverIdx(null);
+    dragNode.current = null;
+  };
+
+  const handleDragEnd = () => {
+    setDragIdx(null);
+    setOverIdx(null);
+    dragNode.current = null;
   };
 
   const addBlock = (type) => {
@@ -154,12 +135,6 @@ export default function LandingEditor() {
 
   const handleDeleteBlock = (id) => {
     setBlocks(blocks.filter(b => b.id !== id));
-  };
-
-  const moveBlock = (index, direction) => {
-    const newIndex = index + direction;
-    if (newIndex < 0 || newIndex >= blocks.length) return;
-    setBlocks(arrayMove(blocks, index, newIndex));
   };
 
   const renderBlockForm = () => {
@@ -221,58 +196,119 @@ export default function LandingEditor() {
     }
   };
 
-  if (loading) return <Typography.Text>Cargando...</Typography.Text>;
+  const typeLabel = (type) => BLOCK_TYPES.find(t => t.value === type)?.label || type;
 
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <Typography.Title level={4} style={{ margin: 0 }}>Editor de Landing Page</Typography.Title>
         <Space>
-          <Button icon={<EyeOutlined />} onClick={() => window.open(`/org/${user?.org_slug}`, '_blank')}>
-            Vista Previa
-          </Button>
-          <Button type="primary" onClick={handleSave} loading={saving}>Guardar</Button>
+          {org && (
+            <Button icon={<EyeOutlined />} onClick={() => window.open(`/org/${org.slug}`, '_blank')}>
+              Vista Previa
+            </Button>
+          )}
+          <Button type="primary" onClick={handleSave} loading={saving} disabled={!org}>Guardar</Button>
         </Space>
       </div>
 
       <Card size="small" style={{ marginBottom: 16 }}>
         <Space wrap>
-          <strong>Agregar bloque:</strong>
+          <strong>Organización:</strong>
           <Select
             style={{ minWidth: 220 }}
-            placeholder="Seleccionar tipo..."
-            options={BLOCK_TYPES}
-            onSelect={addBlock}
-            value={undefined}
+            placeholder="Seleccionar organización..."
+            showSearch optionFilterProp="label"
+            value={selectedOrgId}
+            onChange={setSelectedOrgId}
+            options={orgs.filter(o => o.is_active !== false).map(o => ({ label: o.name, value: o.id }))}
           />
         </Space>
       </Card>
 
-      {blocks.length === 0 ? (
+      {!selectedOrgId ? (
         <Card>
-          <Typography.Text type="secondary">No hay bloques. Agrega uno desde el selector arriba.</Typography.Text>
+          <Typography.Text type="secondary">Selecciona una organización para empezar a editar su landing page.</Typography.Text>
         </Card>
       ) : (
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-          <SortableContext items={blocks.map(b => b.id)} strategy={verticalListSortingStrategy}>
-            {blocks.map((block, index) => (
-              <SortableBlock
-                key={block.id}
-                block={block}
-                index={index}
-                total={blocks.length}
-                onEdit={openEditBlock}
-                onDelete={handleDeleteBlock}
-                onMoveUp={() => moveBlock(index, -1)}
-                onMoveDown={() => moveBlock(index, 1)}
-              />
-            ))}
-          </SortableContext>
-        </DndContext>
+        <>
+          {loading ? (
+            <Typography.Text>Cargando...</Typography.Text>
+          ) : (
+            <>
+              <Card size="small" style={{ marginBottom: 16 }}>
+                <Space wrap>
+                  <strong>Agregar bloque:</strong>
+                  <Select
+                    style={{ minWidth: 220 }}
+                    placeholder="Seleccionar tipo..."
+                    options={BLOCK_TYPES}
+                    onSelect={addBlock}
+                    value={undefined}
+                  />
+                </Space>
+              </Card>
+
+              {blocks.length === 0 ? (
+                <Card>
+                  <Typography.Text type="secondary">No hay bloques. Agrega uno desde el selector arriba.</Typography.Text>
+                </Card>
+              ) : (
+                <div onDragEnd={handleDragEnd}>
+                  {blocks.map((block, index) => {
+                    const isOver = overIdx === index && dragIdx !== index;
+                    return (
+                      <div
+                        key={block.id}
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, index)}
+                        onDragOver={(e) => handleDragOver(e, index)}
+                        onDrop={(e) => handleDrop(e, index)}
+                        style={{
+                          marginBottom: 4,
+                          ...(isOver ? {
+                            border: '3px dashed #1677ff',
+                            borderRadius: 8,
+                            padding: 4,
+                            boxShadow: '0 0 8px rgba(22,119,255,0.3)',
+                          } : {}),
+                        }}
+                      >
+                        <Card
+                          size="small"
+                          style={{
+                            opacity: dragIdx === index ? 0.4 : 1,
+                            transition: 'opacity 0.2s',
+                          }}
+                          actions={[
+                            <Tooltip title="Editar">
+                              <EditOutlined key="edit" onClick={(e) => { e.stopPropagation(); openEditBlock(block); }} />
+                            </Tooltip>,
+                            <Popconfirm key="delete" title="¿Eliminar bloque?" onConfirm={() => handleDeleteBlock(block.id)}>
+                              <DeleteOutlined style={{ color: '#ff4d4f' }} />
+                            </Popconfirm>,
+                          ]}
+                        >
+                          <Space>
+                            <HolderOutlined style={{ cursor: 'grab', color: '#999', fontSize: 16 }} />
+                            <Typography.Text strong>{typeLabel(block.type)}</Typography.Text>
+                            {block.type === 'hero' && <Typography.Text type="secondary">{block.props?.title || '(sin título)'}</Typography.Text>}
+                            {block.type === 'text' && <Typography.Text type="secondary" ellipsis style={{ maxWidth: 300 }}>{block.props?.content || '(sin contenido)'}</Typography.Text>}
+                            {block.type === 'service_grid' && <Typography.Text type="secondary">Visible: {block.props?.visible !== false ? 'Sí' : 'No'}</Typography.Text>}
+                          </Space>
+                        </Card>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </>
+          )}
+        </>
       )}
 
       <Modal
-        title={`Editar Bloque - ${BLOCK_TYPES.find(t => t.value === editingBlock?.type)?.label || ''}`}
+        title={`Editar Bloque - ${typeLabel(editingBlock?.type)}`}
         open={editModalOpen}
         onCancel={() => { setEditModalOpen(false); setEditingBlock(null); }}
         onOk={handleEditSave}

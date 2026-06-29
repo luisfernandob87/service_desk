@@ -88,7 +88,7 @@ export default function ApprovalDetail() {
 
   return (
     <div style={{ maxWidth: 900, margin: '0 auto' }}>
-      <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/admin/aprobaciones')} style={{ marginBottom: 16 }}>Volver</Button>
+      <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/support/aprobaciones')} style={{ marginBottom: 16 }}>Volver</Button>
 
       <Card>
         <Space style={{ marginBottom: 16 }}>

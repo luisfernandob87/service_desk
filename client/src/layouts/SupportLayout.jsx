@@ -4,46 +4,37 @@ import { Layout, Menu, Button, Typography, Avatar, Dropdown, Space } from 'antd'
 import NotificationBell from '../components/NotificationBell';
 import {
   DashboardOutlined,
-  ApartmentOutlined,
-  TeamOutlined,
-  UserOutlined,
-  AppstoreOutlined,
   LogoutOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
-  ToolOutlined,
+  UserOutlined,
   EyeOutlined,
-  ClockCircleOutlined,
-  PartitionOutlined,
-  LayoutOutlined,
-  FormOutlined,
+  BugOutlined,
+  SwapOutlined,
+  ExclamationCircleOutlined,
   SendOutlined,
+  CheckCircleOutlined,
+  ToolOutlined,
+  ApartmentOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '../contexts/AuthContext';
 import { ROLE_LABELS } from '../utils/constants';
 
 const { Header, Sider, Content } = Layout;
 
-const adminMenuItems = [
-  { key: '/admin', icon: <DashboardOutlined />, label: 'Dashboard' },
+const supportMenuItems = [
+  { key: '/support', icon: <DashboardOutlined />, label: 'Dashboard' },
   { key: 'div1', type: 'divider' },
-  { key: 'admin', label: 'ADMINISTRACIÓN', type: 'group' },
-  { key: '/admin/organizations', icon: <ApartmentOutlined />, label: 'Organizaciones' },
-  { key: '/admin/groups', icon: <TeamOutlined />, label: 'Grupos de Soporte' },
-  { key: '/admin/users', icon: <UserOutlined />, label: 'Usuarios' },
-  { key: '/admin/positions', icon: <UserOutlined />, label: 'Puestos' },
-  { key: '/admin/categories', icon: <AppstoreOutlined />, label: 'Categorías' },
-  { key: '/admin/services', icon: <ToolOutlined />, label: 'Servicios' },
-  { key: 'div2', type: 'divider' },
-  { key: 'config', label: 'CONFIGURACIÓN', type: 'group' },
-  { key: '/admin/sla', icon: <ClockCircleOutlined />, label: 'SLA' },
-  { key: '/admin/business-hours', icon: <ClockCircleOutlined />, label: 'Horarios' },
-  { key: '/admin/workflows', icon: <PartitionOutlined />, label: 'Workflows' },
-  { key: '/admin/form-templates', icon: <FormOutlined />, label: 'Formularios' },
-  { key: '/admin/landing', icon: <LayoutOutlined />, label: 'Landing Page' },
+  { key: 'modulos', label: 'MÓDULOS', type: 'group' },
+  { key: '/support/peticiones', icon: <SendOutlined />, label: 'Peticiones' },
+  { key: '/support/incidentes', icon: <BugOutlined />, label: 'Incidentes' },
+  { key: '/support/ordenes-trabajo', icon: <ToolOutlined />, label: 'Órdenes de Trabajo' },
+  { key: '/support/solicitudes-cambio', icon: <SwapOutlined />, label: 'Solicitudes de Cambio' },
+  { key: '/support/problemas', icon: <ExclamationCircleOutlined />, label: 'Problemas' },
+  { key: '/support/aprobaciones', icon: <CheckCircleOutlined />, label: 'Aprobaciones' },
 ];
 
-export default function AdminLayout() {
+export default function SupportLayout() {
   const [collapsed, setCollapsed] = useState(false);
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -67,7 +58,7 @@ export default function AdminLayout() {
           theme="dark"
           mode="inline"
           selectedKeys={[selectedKey]}
-          items={adminMenuItems}
+          items={supportMenuItems}
           onClick={handleMenuClick}
         />
       </Sider>
@@ -84,13 +75,15 @@ export default function AdminLayout() {
               menu={{
               items: [
                 { key: 'role', label: ROLE_LABELS[user?.role], disabled: true },
-                { key: 'support', icon: <SendOutlined />, label: 'Ir a Soporte' },
+                ...(user?.role === 'admin' || user?.role === 'manager'
+                  ? [{ key: 'admin', icon: <ApartmentOutlined />, label: 'Ir a Admin' }]
+                  : []),
                 { key: 'landing', icon: <EyeOutlined />, label: 'Ver Landing Page' },
                 { type: 'divider' },
                 { key: 'logout', icon: <LogoutOutlined />, label: 'Cerrar Sesión' },
               ],
               onClick: ({ key }) => {
-                if (key === 'support') navigate('/support');
+                if (key === 'admin') navigate('/admin');
                 if (key === 'landing') window.open(`/org/${user?.org_slug}`, '_blank');
                 if (key === 'logout') logout();
               },

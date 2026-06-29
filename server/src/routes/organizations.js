@@ -13,6 +13,7 @@ router.get('/:id', auth(['admin', 'manager', 'end_user']), orgController.getById
 router.post('/', auth(['admin']), orgController.create);
 router.put('/:id', auth(['admin']), orgController.update);
 router.patch('/:id/landing-config', auth(['admin', 'manager']), orgController.updateLandingConfig);
+router.patch('/:id/login-config', auth(['admin', 'manager']), orgController.updateLoginConfig);
 router.delete('/:id', auth(['admin']), orgController.remove);
 
 module.exports = router;

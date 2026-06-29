@@ -31,6 +31,10 @@ const Organization = sequelize.define('Organization', {
     type: DataTypes.JSONB,
     defaultValue: [],
   },
+  login_config: {
+    type: DataTypes.JSONB,
+    defaultValue: {},
+  },
 }, {
   tableName: 'organizations',
 });

@@ -34,7 +34,7 @@ export default function RequestsPage() {
       title: 'Petición',
       dataIndex: 'request_number',
       key: 'request_number',
-      render: (v, r) => <a onClick={() => navigate(`/admin/peticiones/${r.id}`)}>#{v || r.id}</a>,
+      render: (v, r) => <a onClick={() => navigate(`/support/peticiones/${r.id}`)}>#{v || r.id}</a>,
     },
     { title: 'Servicio', key: 'service', render: (_, r) => r.service?.name || '-' },
     { title: 'Solicitante', key: 'requester', render: (_, r) => r.requester?.full_name || '-' },
@@ -70,7 +70,7 @@ export default function RequestsPage() {
     {
       title: '',
       key: 'action',
-      render: (_, r) => <ArrowRightOutlined onClick={() => navigate(`/admin/peticiones/${r.id}`)} />,
+      render: (_, r) => <ArrowRightOutlined onClick={() => navigate(`/support/peticiones/${r.id}`)} />,
     },
   ];
 
