@@ -270,18 +270,16 @@ async function runMigrations() {
     await sequelize.query(`
       CREATE TABLE IF NOT EXISTS slas (
         id SERIAL PRIMARY KEY,
-        service_id INTEGER NOT NULL REFERENCES services(id),
-        priority VARCHAR(10) NOT NULL DEFAULT 'medium' CHECK (priority IN ('low','medium','high','critical')),
+        organization_id INTEGER NOT NULL REFERENCES organizations(id),
+        name VARCHAR(200) NOT NULL,
+        description TEXT,
+        has_priorities BOOLEAN DEFAULT true,
         business_hour_id INTEGER REFERENCES business_hours(id),
-        response_time_hours INTEGER DEFAULT 0,
-        response_time_minutes INTEGER DEFAULT 0,
-        resolution_time_hours INTEGER DEFAULT 0,
-        resolution_time_minutes INTEGER DEFAULT 0,
+        entries JSONB DEFAULT '[]',
         is_active BOOLEAN DEFAULT true,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-        deleted_at TIMESTAMP WITH TIME ZONE,
-        UNIQUE(service_id, priority)
+        deleted_at TIMESTAMP WITH TIME ZONE
       );
     `);
 

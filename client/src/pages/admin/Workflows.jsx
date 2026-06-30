@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Table, Button, Modal, Form, Input, Switch, Space, Popconfirm, message, Tag, Typography, Select } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, ApartmentOutlined } from '@ant-design/icons';
@@ -37,16 +37,16 @@ export default function Workflows() {
   const [filterActive, setFilterActive] = useState(true);
   const [form] = Form.useForm();
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
     try {
       const res = await api.get('/workflows');
       setData(res.data);
     } catch { message.error('Error al cargar') }
     finally { setLoading(false) }
-  };
+  }, []);
 
-  useEffect(() => { loadData() }, []);
+  useEffect(() => { loadData() }, [loadData]);
 
   const handleSave = async (values) => {
     try {
@@ -104,6 +104,10 @@ export default function Workflows() {
     { title: 'Nombre', dataIndex: 'name', key: 'name' },
     { title: 'Descripción', dataIndex: 'description', key: 'description', ellipsis: true },
     {
+      title: 'Nodos', key: 'nodes', width: 200,
+      render: (_, r) => getNodeTypesSummary(r.nodes),
+    },
+    {
       title: 'Activo', dataIndex: 'is_active', key: 'is_active', width: 80,
       render: (v) => v === false ? <Tag color="red">No</Tag> : <Tag color="green">Sí</Tag>,
     },
@@ -125,8 +129,7 @@ export default function Workflows() {
     <div>
       <Typography.Title level={4}>Flujos de Trabajo</Typography.Title>
       <Typography.Paragraph type="secondary">
-        Los flujos definen el proceso de atención de un servicio: desde la creación del ticket, aprobaciones,
-        notificaciones y más.
+        Los flujos definen el proceso de atención de un servicio. Para asignar un SLA a un nodo, edítelo en el diseñador visual.
       </Typography.Paragraph>
       <Button type="primary" icon={<PlusOutlined />} onClick={openCreate} style={{ marginBottom: 16 }}>
         Nuevo Flujo
@@ -138,7 +141,13 @@ export default function Workflows() {
             { label: 'Todos', value: false },
           ]} />
       </Space>
-      <Table dataSource={filteredData} columns={columns} rowKey="id" loading={loading} />
+      <Table
+        dataSource={filteredData}
+        columns={columns}
+        rowKey="id"
+        loading={loading}
+        pagination={false}
+      />
 
       <Modal
         title={editing ? 'Editar Flujo' : 'Nuevo Flujo'}
@@ -160,8 +169,6 @@ export default function Workflows() {
           )}
         </Form>
       </Modal>
-
-
     </div>
   );
 }

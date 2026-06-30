@@ -66,8 +66,8 @@ Ticket.hasMany(TicketRelation, { foreignKey: 'child_ticket_id', as: 'parentRelat
 User.hasMany(Notification, { foreignKey: 'user_id', as: 'notifications' });
 Notification.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
 
-Sla.belongsTo(Service, { foreignKey: 'service_id', as: 'service' });
-Service.hasOne(Sla, { foreignKey: 'service_id', as: 'sla' });
+Sla.belongsTo(Organization, { foreignKey: 'organization_id', as: 'organization' });
+Organization.hasMany(Sla, { foreignKey: 'organization_id', as: 'slas' });
 Sla.belongsTo(BusinessHour, { foreignKey: 'business_hour_id', as: 'businessHour' });
 BusinessHour.hasMany(Sla, { foreignKey: 'business_hour_id', as: 'slas' });
 

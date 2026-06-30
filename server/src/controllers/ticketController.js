@@ -1,4 +1,4 @@
-const { Ticket, TicketComment, TicketAttachment, TicketRelation, Service, User, SupportGroup, Workflow, UserGroup, WorkflowExecution } = require('../models');
+const { Ticket, TicketComment, TicketAttachment, TicketRelation, Service, User, SupportGroup, Workflow, UserGroup, WorkflowExecution, Sla } = require('../models');
 const slaEngine = require('../services/slaEngine');
 const notificationService = require('../services/notificationService');
 const workflowEngine = require('../services/workflowEngine');
@@ -82,6 +82,30 @@ exports.getById = async (req, res) => {
     });
 
     ticket.setDataValue('comments', comments);
+
+    /* Determine if SLA has priorities (to hide/show priority field) */
+    let slaHasPriorities = true;
+    if (ticket.workflow_execution_id && ticket.source_node_id) {
+      const exec = await WorkflowExecution.findByPk(ticket.workflow_execution_id, {
+        attributes: ['workflow_id'],
+        raw: true,
+      });
+      if (exec) {
+        const wf = await Workflow.findByPk(exec.workflow_id, {
+          attributes: ['nodes'],
+          raw: true,
+        });
+        if (wf?.nodes) {
+          const nodes = typeof wf.nodes === 'string' ? JSON.parse(wf.nodes) : wf.nodes;
+          const node = nodes.find(n => n.id === ticket.source_node_id);
+          if (node?.data?.sla_id) {
+            const sla = await Sla.findByPk(node.data.sla_id, { attributes: ['has_priorities'], raw: true });
+            if (sla) slaHasPriorities = sla.has_priorities !== false;
+          }
+        }
+      }
+    }
+    ticket.setDataValue('sla_has_priorities', slaHasPriorities);
 
     res.json(ticket);
   } catch (error) {

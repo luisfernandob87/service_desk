@@ -1,5 +1,6 @@
-const { WorkflowExecution, Workflow, Ticket, TicketComment, Service, SupportGroup, User, UserGroup, Organization } = require('../models');
+const { WorkflowExecution, Workflow, Ticket, TicketComment, Service, SupportGroup, User, UserGroup, Organization, Sla } = require('../models');
 const workflowEngine = require('../services/workflowEngine');
+const slaEngine = require('../services/slaEngine');
 
 exports.listRequests = async (req, res) => {
   try {
@@ -48,7 +49,7 @@ exports.getById = async (req, res) => {
         { model: Service, as: 'service', attributes: ['id', 'name'] },
         { model: User, as: 'requester', attributes: ['id', 'full_name', 'email'] },
         { model: SupportGroup, as: 'assignedGroup', attributes: ['id', 'name'] },
-        { model: Ticket, as: 'tickets', attributes: ['id', 'code', 'type', 'title', 'status', 'source_node_id', 'created_at', 'assigned_group_id', 'assigned_user_id', 'resolution'] },
+        { model: Ticket, as: 'tickets', attributes: ['id', 'code', 'type', 'title', 'status', 'priority', 'source_node_id', 'created_at', 'assigned_group_id', 'assigned_user_id', 'resolution'] },
         { model: Approval, as: 'approvals', attributes: ['id', 'code', 'status', 'stage', 'source_node_id', 'rejection_reason'] },
         { model: WorkflowExecution, as: 'parentExecution', attributes: ['id', 'request_number'] },
         { model: WorkflowExecution, as: 'childExecutions', attributes: ['id', 'request_number', 'status', 'created_at'] },
@@ -61,7 +62,42 @@ exports.getById = async (req, res) => {
       return res.status(403).json({ error: 'No tienes acceso a esta petición' });
     }
 
-    res.json(execution);
+    /* Calculate total estimated SLA */
+    const executionJson = execution.toJSON();
+    let totalMinutes = 0;
+    const slaBreakdown = [];
+    const workflowNodes = executionJson.workflow?.nodes || [];
+    const tickets = executionJson.tickets || [];
+    if (workflowNodes.length) {
+      const nodes = typeof workflowNodes === 'string' ? JSON.parse(workflowNodes) : workflowNodes;
+      for (const node of nodes) {
+        if (!['incident', 'work_order', 'change_request', 'problem'].includes(node.data?.nodeType)) continue;
+        if (!node.data?.sla_id) continue;
+        const sla = await Sla.findByPk(node.data.sla_id);
+        if (!sla || !sla.is_active) continue;
+        const ticketNode = tickets.find(t => t.source_node_id === node.id);
+        const priority = ticketNode?.priority || 'medium';
+        const entry = slaEngine.getEntry(sla, priority);
+        if (entry) {
+          const nodeMinutes = ((entry.resolution_h || 0) * 60) + (entry.resolution_m || 0);
+          totalMinutes += nodeMinutes;
+          slaBreakdown.push({
+            nodeId: node.id,
+            nodeLabel: node.data?.label || node.data?.nodeType,
+            nodeType: node.data?.nodeType,
+            slaName: sla.name,
+            slaId: sla.id,
+            priority,
+            responseMinutes: ((entry.response_h || 0) * 60) + (entry.response_m || 0),
+            resolutionMinutes: nodeMinutes,
+          });
+        }
+      }
+    }
+    executionJson.total_sla_minutes = totalMinutes;
+    executionJson.sla_breakdown = slaBreakdown;
+
+    res.json(executionJson);
   } catch (error) {
     console.error('Workflow execution get error:', error);
     res.status(500).json({ error: 'Error al obtener petición' });

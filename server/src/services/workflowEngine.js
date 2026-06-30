@@ -36,7 +36,7 @@ async function executeNode(execution, node, workflowNodes, workflowEdges) {
         type: ticketType,
         title: context.title || context.form_data?.title || `Pendiente: ${node.data?.label || ticketType}`,
         description: context.description || context.form_data?.description || '',
-        priority: node.data?.priority || context.priority || 'medium',
+        priority: context.priority || 'medium',
         form_data: context.form_data || context || {},
         status: 'new',
         workflow_execution_id: execution.id,

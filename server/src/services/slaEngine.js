@@ -1,5 +1,5 @@
 const { Op } = require('sequelize');
-const { Sla, BusinessHour, Ticket } = require('../models');
+const { Sla, BusinessHour, Ticket, WorkflowExecution, Workflow } = require('../models');
 const notificationService = require('./notificationService');
 
 function addBusinessHours(startDate, hoursToAdd, schedule) {
@@ -50,15 +50,40 @@ function addBusinessHours(startDate, hoursToAdd, schedule) {
   return current;
 }
 
-async function findSla(serviceId, priority) {
-  const sla = await Sla.findOne({ where: { service_id: serviceId, priority }, paranoid: false });
-  if (sla && sla.is_active) return sla;
-  return null;
+async function findSlaForTicket(ticket) {
+  if (!ticket.workflow_execution_id || !ticket.source_node_id) return null;
+
+  const execution = await WorkflowExecution.findByPk(ticket.workflow_execution_id, {
+    attributes: ['workflow_id'],
+    raw: true,
+  });
+  if (!execution) return null;
+
+  const workflow = await Workflow.findByPk(execution.workflow_id, {
+    attributes: ['nodes'],
+    raw: true,
+  });
+  if (!workflow?.nodes?.length) return null;
+
+  const nodes = typeof workflow.nodes === 'string' ? JSON.parse(workflow.nodes) : workflow.nodes;
+  const node = nodes.find(n => n.id === ticket.source_node_id);
+  if (!node?.data?.sla_id) return null;
+
+  const sla = await Sla.findByPk(node.data.sla_id);
+  if (!sla || !sla.is_active) return null;
+
+  return sla;
 }
 
-async function applyDeadlines(ticket, sla, startDate) {
-  const responseMs = (sla.response_time_hours * 3600000) + (sla.response_time_minutes * 60000);
-  const resolutionMs = (sla.resolution_time_hours * 3600000) + (sla.resolution_time_minutes * 60000);
+function getEntry(sla, priority) {
+  if (!sla.entries?.length) return null;
+  if (!sla.has_priorities) return sla.entries[0];
+  return sla.entries.find(e => e.priority === priority) || sla.entries[0];
+}
+
+async function applyDeadlines(ticket, sla, entry, startDate) {
+  const responseMs = ((entry.response_h || 0) * 3600000) + ((entry.response_m || 0) * 60000);
+  const resolutionMs = ((entry.resolution_h || 0) * 3600000) + ((entry.resolution_m || 0) * 60000);
 
   if (sla.business_hour_id) {
     const bh = await BusinessHour.findByPk(sla.business_hour_id);
@@ -75,24 +100,35 @@ async function applyDeadlines(ticket, sla, startDate) {
 }
 
 exports.applySla = async (ticket) => {
-  if (!ticket.service_id) return;
-  const sla = await findSla(ticket.service_id, ticket.priority || 'medium');
+  const sla = await findSlaForTicket(ticket);
   if (!sla) return;
-  await applyDeadlines(ticket, sla, new Date());
+
+  const entry = getEntry(sla, ticket.priority || 'medium');
+  if (!entry) return;
+
+  await applyDeadlines(ticket, sla, entry, new Date());
   await ticket.save();
 };
 
 exports.recalculateSla = async (ticket) => {
-  if (!ticket.service_id) return;
-  const sla = await findSla(ticket.service_id, ticket.priority || 'medium');
+  const sla = await findSlaForTicket(ticket);
   if (!sla) {
     ticket.sla_response_deadline = null;
     ticket.sla_resolution_deadline = null;
     await ticket.save();
     return;
   }
+
+  const entry = getEntry(sla, ticket.priority || 'medium');
+  if (!entry) {
+    ticket.sla_response_deadline = null;
+    ticket.sla_resolution_deadline = null;
+    await ticket.save();
+    return;
+  }
+
   const start = ticket.createdAt ? new Date(ticket.createdAt) : new Date();
-  await applyDeadlines(ticket, sla, start);
+  await applyDeadlines(ticket, sla, entry, start);
   const pausedMs = (ticket.sla_paused_minutes || 0) * 60000;
   if (pausedMs && ticket.sla_response_deadline) {
     ticket.sla_response_deadline = new Date(ticket.sla_response_deadline.getTime() + pausedMs);
@@ -133,3 +169,6 @@ exports.checkBreaches = async () => {
     }
   }
 };
+
+exports.findSlaForTicket = findSlaForTicket;
+exports.getEntry = getEntry;

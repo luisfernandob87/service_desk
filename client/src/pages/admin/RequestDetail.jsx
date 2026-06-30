@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Card, Typography, Tag, Descriptions, Button, Spin, Space, Divider, Steps, Table } from 'antd';
+import { Card, Typography, Tag, Descriptions, Button, Spin, Space, Divider, Steps, Table, Row, Col } from 'antd';
 import { ArrowLeftOutlined, BugOutlined, ToolOutlined, SwapOutlined, ExclamationCircleOutlined, CheckCircleOutlined, BellOutlined, BranchesOutlined, PlayCircleOutlined, StopOutlined, LinkOutlined } from '@ant-design/icons';
 import api from '../../api/client';
 import { TICKET_TYPES, TICKET_STATUS } from '../../utils/constants';
 import { getOrderedNodes, getStepStatus } from '../../utils/workflowHelpers';
 import { formatDate } from '../../utils/formatDate';
+import SlaVisual from '../../components/SlaVisual';
 
 const NODE_ICONS = {
   start: <PlayCircleOutlined />,
@@ -69,6 +70,9 @@ export default function RequestDetail() {
           <Descriptions.Item label="Solicitante">{exec.requester?.full_name || '-'}</Descriptions.Item>
           <Descriptions.Item label="Grupo asignado">{exec.assignedGroup?.name || '-'}</Descriptions.Item>
           <Descriptions.Item label="Workflow">{exec.workflow?.name || '-'}</Descriptions.Item>
+          <Descriptions.Item label="SLA Estimado" span={2}>
+            <SlaVisual breakdown={exec.sla_breakdown || []} totalMinutes={exec.total_sla_minutes || 0} />
+          </Descriptions.Item>
           {exec.parentExecution && (
             <Descriptions.Item label="Reapertura de" span={2}>
               <Link to={`/support/peticiones/${exec.parentExecution.id}`}>

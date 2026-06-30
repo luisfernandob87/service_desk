@@ -11,7 +11,7 @@ import {
   Position,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { Button, Space, Select, Tag, Typography, Drawer, Input, Slider } from 'antd';
+import { Button, Space, Select, Tag, Typography, Drawer, Input, Slider, message } from 'antd';
 import {
   PlayCircleOutlined,
   CheckCircleOutlined,
@@ -43,11 +43,11 @@ const NODE_CONFIG = {
     icon: <BugOutlined />,
     hasTarget: true,
     hasSource: true,
-    defaultData: { priority: 'medium' },
+    defaultData: {},
     configFields: [
       { name: 'assigned_group_id', label: 'Grupo asignado', type: 'groupSelect' },
       { name: 'assigned_user_id', label: 'Resolutor asignado', type: 'userSelect' },
-      { name: 'priority', label: 'Prioridad', type: 'select', options: ['low', 'medium', 'high', 'critical'] },
+      { name: 'sla_id', label: 'SLA', type: 'slaSelect' },
     ],
   },
   work_order: {
@@ -57,11 +57,11 @@ const NODE_CONFIG = {
     icon: <ToolOutlined />,
     hasTarget: true,
     hasSource: true,
-    defaultData: { priority: 'medium' },
+    defaultData: {},
     configFields: [
       { name: 'assigned_group_id', label: 'Grupo asignado', type: 'groupSelect' },
       { name: 'assigned_user_id', label: 'Resolutor asignado', type: 'userSelect' },
-      { name: 'priority', label: 'Prioridad', type: 'select', options: ['low', 'medium', 'high', 'critical'] },
+      { name: 'sla_id', label: 'SLA', type: 'slaSelect' },
     ],
   },
   change_request: {
@@ -71,11 +71,11 @@ const NODE_CONFIG = {
     icon: <SwapOutlined />,
     hasTarget: true,
     hasSource: true,
-    defaultData: { priority: 'medium' },
+    defaultData: {},
     configFields: [
       { name: 'assigned_group_id', label: 'Grupo asignado', type: 'groupSelect' },
       { name: 'assigned_user_id', label: 'Resolutor asignado', type: 'userSelect' },
-      { name: 'priority', label: 'Prioridad', type: 'select', options: ['low', 'medium', 'high', 'critical'] },
+      { name: 'sla_id', label: 'SLA', type: 'slaSelect' },
     ],
   },
   problem: {
@@ -85,11 +85,11 @@ const NODE_CONFIG = {
     icon: <ExclamationCircleOutlined />,
     hasTarget: true,
     hasSource: true,
-    defaultData: { priority: 'medium' },
+    defaultData: {},
     configFields: [
       { name: 'assigned_group_id', label: 'Grupo asignado', type: 'groupSelect' },
       { name: 'assigned_user_id', label: 'Resolutor asignado', type: 'userSelect' },
-      { name: 'priority', label: 'Prioridad', type: 'select', options: ['low', 'medium', 'high', 'critical'] },
+      { name: 'sla_id', label: 'SLA', type: 'slaSelect' },
     ],
   },
   approval: {
@@ -191,6 +191,7 @@ export default function WorkflowEditor({ value, onChange }) {
   const [selectedEdgeId, setSelectedEdgeId] = useState(null);
   const [groups, setGroups] = useState([]);
   const [users, setUsers] = useState([]);
+  const [slas, setSlas] = useState([]);
 
   const initialNodes = useMemo(() => {
     if (value?.nodes?.length) return value.nodes.map(n => ({ ...n, type: 'process' }));
@@ -264,21 +265,35 @@ export default function WorkflowEditor({ value, onChange }) {
       const baseUrl = import.meta.env.VITE_API_URL || '';
       const token = localStorage.getItem('token');
       const headers = { Authorization: `Bearer ${token}` };
-      const [grpRes, usrRes] = await Promise.all([
+      const [grpRes, usrRes, slaRes] = await Promise.all([
         fetch(`${baseUrl}/api/support-groups`, { headers }),
         fetch(`${baseUrl}/api/users`, { headers }),
+        fetch(`${baseUrl}/api/slas`, { headers }),
       ]);
       if (grpRes.ok) setGroups(await grpRes.json());
       if (usrRes.ok) setUsers(await usrRes.json());
+      if (slaRes.ok) setSlas(await slaRes.json());
     } catch (_) {}
     setConfigNode(node);
   }, []);
 
   const updateNodeData = useCallback((nodeId, newData) => {
     setNodes((nds) =>
-      nds.map((n) => (n.id === nodeId ? { ...n, data: { ...n.data, ...newData } } : n))
+      nds.map((n) => {
+        if (n.id !== nodeId) return n;
+        let updatedData = { ...n.data, ...newData };
+        if ('assigned_group_id' in newData && newData.assigned_group_id !== n.data.assigned_group_id) {
+          const curUserId = n.data.assigned_user_id;
+          if (curUserId) {
+            const user = users.find(u => u.id === curUserId);
+            const inGroup = user?.groups?.some(g => g.id === newData.assigned_group_id);
+            if (!inGroup) delete updatedData.assigned_user_id;
+          }
+        }
+        return { ...n, data: updatedData };
+      })
     );
-  }, [setNodes]);
+  }, [setNodes, users]);
 
   const handleSave = () => {
     onChange({ nodes, edges });
@@ -383,16 +398,39 @@ export default function WorkflowEditor({ value, onChange }) {
                 );
               }
               if (field.type === 'userSelect') {
+                const hasGroup = !!selectedNode.data?.assigned_group_id;
+                const filteredUsers = hasGroup
+                  ? users.filter(u => u.groups?.some(g => g.id === selectedNode.data.assigned_group_id))
+                  : [];
+                const allOptions = curVal && !hasGroup
+                  ? users.filter(u => u.id === curVal).map(u => ({ label: u.full_name, value: u.id }))
+                  : [];
                 return (
                   <div key={field.name}>
                     <div style={{ marginBottom: 4, fontWeight: 500 }}>{field.label}</div>
                     <Select
                       style={{ width: '100%' }}
                       allowClear
-                      placeholder="Seleccionar usuario"
+                      placeholder={hasGroup ? 'Seleccionar usuario' : 'Seleccione un grupo primero'}
+                      value={curVal}
+                      disabled={!hasGroup && !curVal}
+                      onChange={(val) => updateNodeData(selectedNode.id, { [field.name]: val })}
+                      options={hasGroup ? filteredUsers.map(u => ({ label: u.full_name, value: u.id })) : allOptions}
+                    />
+                  </div>
+                );
+              }
+              if (field.type === 'slaSelect') {
+                return (
+                  <div key={field.name}>
+                    <div style={{ marginBottom: 4, fontWeight: 500 }}>{field.label}</div>
+                    <Select
+                      style={{ width: '100%' }}
+                      allowClear
+                      placeholder="Seleccionar SLA"
                       value={curVal}
                       onChange={(val) => updateNodeData(selectedNode.id, { [field.name]: val })}
-                      options={users.map(u => ({ label: u.full_name, value: u.id }))}
+                      options={slas.filter(s => s.is_active !== false).map(s => ({ label: s.name, value: s.id }))}
                     />
                   </div>
                 );

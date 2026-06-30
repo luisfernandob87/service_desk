@@ -188,13 +188,15 @@ export default function TicketDetail() {
                 style={{ width: 220 }}
                 size="small"
               />
-              <Select
-                value={draftPriority}
-                onChange={v => { setDraftPriority(v); setDirty(true); }}
-                options={Object.entries(PRIORITIES).map(([k, v]) => ({ label: v, value: k }))}
-                style={{ width: 120 }}
-                size="small"
-              />
+              {ticket.sla_has_priorities !== false && (
+                <Select
+                  value={draftPriority}
+                  onChange={v => { setDraftPriority(v); setDirty(true); }}
+                  options={Object.entries(PRIORITIES).map(([k, v]) => ({ label: v, value: k }))}
+                  style={{ width: 120 }}
+                  size="small"
+                />
+              )}
               <Button type="primary" onClick={handleSave} loading={saving} disabled={!dirty}>
                 Guardar
               </Button>
@@ -276,7 +278,9 @@ export default function TicketDetail() {
           <Descriptions.Item label="Solicitante">{ticket.requester?.full_name}</Descriptions.Item>
           <Descriptions.Item label="Email">{ticket.requester?.email}</Descriptions.Item>
           <Descriptions.Item label="Servicio">{ticket.service?.name || '-'}</Descriptions.Item>
-          <Descriptions.Item label="Prioridad">{ticket.priority?.toUpperCase()}</Descriptions.Item>
+          {ticket.sla_has_priorities !== false && (
+            <Descriptions.Item label="Prioridad">{ticket.priority?.toUpperCase()}</Descriptions.Item>
+          )}
           <Descriptions.Item label="Grupo asignado">{ticket.assignedGroup?.name || '-'}</Descriptions.Item>
           <Descriptions.Item label="Usuario asignado">{ticket.assignedUser?.full_name || '-'}</Descriptions.Item>
           <Descriptions.Item label="Creado">{formatDate(ticket.createdAt)}</Descriptions.Item>

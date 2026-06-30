@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Card, Typography, Tag, Descriptions, Button, Spin, Space, Divider, Steps, Table, Modal, message } from 'antd';
+import { Card, Typography, Tag, Descriptions, Button, Spin, Space, Divider, Steps, Table, Modal, message, Row, Col } from 'antd';
 import { ArrowLeftOutlined, BugOutlined, ToolOutlined, SwapOutlined, ExclamationCircleOutlined, CheckCircleOutlined, BellOutlined, BranchesOutlined, PlayCircleOutlined, StopOutlined, CloseCircleOutlined, ReloadOutlined } from '@ant-design/icons';
 import api from '../../api/client';
 import { useAuth } from '../../contexts/AuthContext';
 import { TICKET_TYPES, TICKET_STATUS } from '../../utils/constants';
 import { formatDate } from '../../utils/formatDate';
 import { getOrderedNodes, getStepStatus } from '../../utils/workflowHelpers';
+import SlaVisual from '../../components/SlaVisual';
 
 const NODE_ICONS = {
   start: <PlayCircleOutlined />,
@@ -124,6 +125,9 @@ export default function UserRequestDetail() {
         <Descriptions column={2} size="small" bordered style={{ marginTop: 16 }}>
           <Descriptions.Item label="Servicio">{exec.service?.name || '-'}</Descriptions.Item>
           <Descriptions.Item label="Workflow">{exec.workflow?.name || '-'}</Descriptions.Item>
+          <Descriptions.Item label="SLA Estimado" span={2}>
+            <SlaVisual breakdown={exec.sla_breakdown || []} totalMinutes={exec.total_sla_minutes || 0} />
+          </Descriptions.Item>
           {exec.parentExecution && (
             <Descriptions.Item label="Reapertura de" span={2}>
               <Link to={`/my-requests/${exec.parentExecution.id}`}>

@@ -7,33 +7,27 @@ const Sla = sequelize.define('Sla', {
     primaryKey: true,
     autoIncrement: true,
   },
-  service_id: {
+  organization_id: {
     type: DataTypes.INTEGER,
     allowNull: false,
   },
-  priority: {
-    type: DataTypes.ENUM('low', 'medium', 'high', 'critical'),
+  name: {
+    type: DataTypes.STRING(200),
     allowNull: false,
-    defaultValue: 'medium',
+  },
+  description: {
+    type: DataTypes.TEXT,
+  },
+  has_priorities: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: true,
   },
   business_hour_id: {
     type: DataTypes.INTEGER,
   },
-  response_time_hours: {
-    type: DataTypes.INTEGER,
-    defaultValue: 0,
-  },
-  response_time_minutes: {
-    type: DataTypes.INTEGER,
-    defaultValue: 0,
-  },
-  resolution_time_hours: {
-    type: DataTypes.INTEGER,
-    defaultValue: 0,
-  },
-  resolution_time_minutes: {
-    type: DataTypes.INTEGER,
-    defaultValue: 0,
+  entries: {
+    type: DataTypes.JSONB,
+    defaultValue: [],
   },
   is_active: {
     type: DataTypes.BOOLEAN,
@@ -41,9 +35,6 @@ const Sla = sequelize.define('Sla', {
   },
 }, {
   tableName: 'slas',
-  indexes: [
-    { unique: true, fields: ['service_id', 'priority'] },
-  ],
 });
 
 module.exports = Sla;
